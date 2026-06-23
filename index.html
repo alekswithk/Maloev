@@ -99,12 +99,69 @@
     table.doc tr{break-inside:avoid}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
-  @media(max-width:1000px){.app{flex-direction:column}.panel{width:100%;max-width:none;height:auto}
-    .preview-wrap{height:auto}.sheet{transform:scale(.92);transform-origin:top center}}
+  /* ---------- Mobile tab bar (hidden on desktop) ---------- */
+  .mobtabs{display:none}
+
+  /* ---------- Tablet ---------- */
+  @media(max-width:1000px){
+    .app{flex-direction:column}
+    .panel{width:100%;max-width:none;height:auto;border-right:none}
+    .preview-wrap{height:auto}
+    .sheet{transform:scale(.92);transform-origin:top center}
+  }
+
+  /* ---------- Phone ---------- */
+  @media(max-width:680px){
+    body{-webkit-text-size-adjust:100%}
+    .app{flex-direction:column;min-height:100vh}
+
+    /* fixed bottom tab bar to switch Eingabe / Vorschau */
+    .mobtabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;
+             background:#fff;border-top:1px solid #ddd;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
+    .mobtabs button{flex:1;border:none;background:none;font:inherit;font-size:14px;font-weight:600;
+             padding:13px 0;color:var(--muted);cursor:pointer}
+    .mobtabs button.active{color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent)}
+
+    .panel,.preview-wrap{width:100%;max-width:none;height:auto;overflow:visible;
+             padding-bottom:78px} /* clear the tab bar */
+    .panel{padding-left:14px;padding-right:14px;border-right:none}
+
+    /* tab visibility — toggled by body class */
+    body.show-preview .panel{display:none}
+    body:not(.show-preview) .preview-wrap{display:none}
+
+    /* stack all paired fields full-width */
+    .row{flex-direction:column;gap:0}
+    .toolbar .btn{flex:1 1 100%}
+
+    /* bigger touch targets, no iOS zoom-on-focus (needs >=16px) */
+    input,textarea,select{font-size:16px;padding:9px 10px}
+    .btn{padding:11px 14px}
+
+    /* fit the A4 sheet to the screen width and keep proportions */
+    .preview-wrap{padding:12px 8px;display:flex;flex-direction:column;align-items:center}
+    .sheet{transform:scale(var(--mscale,.46));transform-origin:top center;
+           margin-bottom:calc(297mm * (var(--mscale,.46) - 1) + 18px)}
+
+    /* ----- reflow the form's item table into stacked cards ----- */
+    table.items thead{display:none}
+    table.items,table.items tbody,table.items tr,table.items td{display:block;width:100%}
+    table.items tr.itemrow{border:1px solid #e0e0e0;border-radius:10px;padding:8px;margin:0 0 12px;background:#fcfcfc}
+    table.items td{padding:5px 2px}
+    table.items td::before{content:attr(data-lbl);display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+    table.items td.ctl{text-align:right}
+    table.items td.ctl::before{content:""}
+  }
 </style>
 </head>
 <body>
 <div class="app">
+
+  <!-- ============ MOBILE TAB BAR (phones only) ============ -->
+  <nav class="mobtabs" role="tablist">
+    <button id="tabEdit" class="active" type="button">✎ Eingabe</button>
+    <button id="tabPrev" type="button">📄 Vorschau</button>
+  </nav>
 
   <!-- ============ FORM PANEL ============ -->
   <div class="panel">
@@ -409,12 +466,12 @@ function setLogo(url){ logoImg1.src=url; logoImg2.src=url; }
 function addItemRow(data={}){
   const tr=document.createElement("tr"); tr.className="itemrow";
   tr.innerHTML=`
-    <td><input class="f-artikel" value="${esc(data.artikel||'')}"></td>
-    <td><input class="f-bez" value="${esc(data.bez||'')}"></td>
-    <td><input class="f-anzahl" value="${esc(data.anzahl||'')}"></td>
-    <td><input class="f-preis" value="${esc(data.preis||'')}"></td>
-    <td><input class="f-override" value="${esc(data.override||'')}"></td>
-    <td class="ctl"><button class="btn danger tiny" type="button">✕</button></td>`;
+    <td data-lbl="Artikel"><input class="f-artikel" value="${esc(data.artikel||'')}"></td>
+    <td data-lbl="Bezeichnung"><input class="f-bez" value="${esc(data.bez||'')}"></td>
+    <td data-lbl="Anzahl"><input class="f-anzahl" value="${esc(data.anzahl||'')}"></td>
+    <td data-lbl="Preis/St"><input class="f-preis" value="${esc(data.preis||'')}"></td>
+    <td data-lbl="Total überschreiben"><input class="f-override" value="${esc(data.override||'')}"></td>
+    <td class="ctl"><button class="btn danger tiny" type="button">✕ entfernen</button></td>`;
   tr.querySelector("button").onclick=()=>{tr.remove();render();};
   tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",render));
   document.getElementById("itemBody").appendChild(tr);
@@ -531,12 +588,35 @@ document.getElementById("logoFile").onchange=e=>{
   const rd=new FileReader(); rd.onload=()=>{logoDataUrl=rd.result; setLogo(rd.result); render();}; rd.readAsDataURL(f);
 };
 
+/* ===================== Mobile: tabs + fit-to-width scaling ===================== */
+function setTab(preview){
+  document.body.classList.toggle("show-preview", preview);
+  document.getElementById("tabEdit").classList.toggle("active", !preview);
+  document.getElementById("tabPrev").classList.toggle("active", preview);
+  if(preview) fitSheets();
+}
+document.getElementById("tabEdit").onclick=()=>setTab(false);
+document.getElementById("tabPrev").onclick=()=>{setTab(true);window.scrollTo(0,0);};
+
+// Scale the 210mm sheet so it fits the viewport width on phones.
+function fitSheets(){
+  if(window.innerWidth>680){document.documentElement.style.removeProperty("--mscale");return;}
+  const wrap=document.querySelector(".preview-wrap");
+  const avail=Math.max(260, wrap.clientWidth-16);   // padding allowance
+  const sheetPx=210/25.4*96;                         // 210mm in CSS px
+  const scale=Math.min(1, avail/sheetPx);
+  document.documentElement.style.setProperty("--mscale", scale.toFixed(3));
+}
+window.addEventListener("resize", fitSheets);
+window.addEventListener("orientationchange", ()=>setTimeout(fitSheets,150));
+
 /* ===================== Init ===================== */
 (function init(){
   let saved=null;
   try{ saved=JSON.parse(localStorage.getItem(STORE_KEY)); }catch(e){}
   applyState(saved && saved.nr!=null ? saved : structuredClone(DEFAULTS));
   render();
+  fitSheets();
 })();
 </script>
 </body>
