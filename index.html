@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offerte &amp; Rechnung – Generator</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --muted:#666; --line:#999; --grey:#e9e9e9;
+    --accent:#1f4e79; --bg:#eef0f3; --field-bg:#fff; --rule:#444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg)}
+
+  /* ---------- App shell ---------- */
+  .app{display:flex;min-height:100vh}
+  .panel{width:42%;max-width:560px;min-width:340px;padding:18px 20px 60px;
+         background:#fafafa;border-right:1px solid #ddd;overflow:auto;height:100vh}
+  .preview-wrap{flex:1;padding:24px;overflow:auto;height:100vh}
+
+  .panel h1{font-size:18px;margin:0 0 4px}
+  .panel .sub{font-size:12px;color:var(--muted);margin:0 0 16px}
+  fieldset{border:1px solid #dcdcdc;border-radius:8px;margin:0 0 14px;padding:12px 12px 6px;background:#fff}
+  legend{font-size:13px;font-weight:700;color:var(--accent);padding:0 6px}
+  label{display:block;font-size:11px;color:var(--muted);margin:8px 0 2px}
+  input,textarea,select{width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1px solid #ccc;
+        border-radius:6px;background:var(--field-bg);color:var(--ink)}
+  textarea{resize:vertical;min-height:46px}
+  .row{display:flex;gap:8px}
+  .row>div{flex:1}
+  .btn{font:inherit;font-size:13px;padding:8px 12px;border:1px solid var(--accent);background:var(--accent);
+       color:#fff;border-radius:6px;cursor:pointer}
+  .btn.secondary{background:#fff;color:var(--accent)}
+  .btn.tiny{padding:3px 8px;font-size:12px}
+  .btn.danger{border-color:#b33;color:#b33;background:#fff}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+
+  /* items table in form */
+  table.items{width:100%;border-collapse:collapse;margin-top:6px}
+  table.items th{font-size:10px;color:var(--muted);text-align:left;font-weight:600;padding:2px 3px}
+  table.items td{padding:2px 3px;vertical-align:top}
+  table.items input{padding:4px 5px;font-size:12px}
+  .itemrow .ctl{white-space:nowrap}
+
+  /* ---------- A4 preview ---------- */
+  .sheet{width:210mm;min-height:297mm;background:#fff;margin:0 auto 26px;
+         box-shadow:0 2px 14px rgba(0,0,0,.18);padding:20mm 18mm;position:relative;
+         font-size:11.2pt;line-height:1.45;color:#000}
+  .sheet .pagefoot{position:absolute;left:18mm;right:18mm;bottom:10mm;text-align:center;
+         font-size:8pt;color:#222;line-height:1.4}
+
+  .lh{display:flex;flex-direction:column;align-items:center;margin-bottom:4px}
+  .lh img{height:26mm;object-fit:contain}
+  .lh-rule{border:0;border-top:1px solid #000;margin:2mm 0 4mm}
+
+  .sender-line{font-size:8.5pt;color:#000;margin-bottom:6mm}
+  .topgrid{display:flex;justify-content:space-between;gap:10mm}
+  .addr{font-size:11pt;line-height:1.5}
+  .addr .firma{font-weight:bold}
+  .meta{font-size:9pt;min-width:64mm}
+  .meta .mblock{margin-bottom:3mm}
+  .meta .mrow{display:flex;gap:6px}
+  .meta .mrow .k{width:30mm;color:#000}
+  .meta .mrow .v{flex:1}
+
+  .doc-h{font-weight:bold;font-size:12pt;border-bottom:1px solid #000;padding-bottom:2px;margin:9mm 0 5mm}
+  p.body{margin:0 0 3mm}
+
+  table.doc{width:100%;border-collapse:collapse;margin:4mm 0;font-size:10pt}
+  table.doc th,table.doc td{border:1px solid #999;padding:3px 6px;text-align:left;vertical-align:top}
+  table.doc th{background:transparent;font-weight:bold;font-size:9.5pt}
+  table.doc.invoice th{background:var(--grey);font-size:8.5pt;text-align:center}
+  table.doc td.num,table.doc th.num{text-align:right;white-space:nowrap}
+  table.doc td.c{text-align:center}
+  tr.tot td{border:none;font-weight:bold}
+  tr.tot td.lbl{text-align:left}
+  tr.sumrow td{background:var(--grey);font-weight:bold;border-color:#999}
+
+  .sig{display:flex;justify-content:space-between;gap:10mm;margin-top:14mm;font-size:10pt}
+  .sig .col{flex:1}
+  .sig .line{border-top:1px solid #000;margin-top:12mm;padding-top:1mm}
+  .pay-h{font-weight:bold;margin:7mm 0 1mm}
+
+  .inv-note{margin:6mm 0;font-size:10pt}
+  .footblock{display:flex;justify-content:space-between;gap:10mm;margin-top:12mm;font-size:9.5pt;font-style:italic}
+  .footblock .fb-name{font-weight:bold}
+  .thanks{text-align:center;margin-top:10mm;font-size:10pt}
+
+  /* ---------- Print ---------- */
+  @media print{
+    @page{size:A4;margin:0}
+    body{background:#fff}
+    .panel,.preview-wrap-head,.app .panel{display:none!important}
+    .preview-wrap{padding:0;height:auto;overflow:visible}
+    .sheet{box-shadow:none;margin:0;width:210mm;min-height:297mm;
+           page-break-after:always;break-after:page}
+    .sheet:last-child{page-break-after:auto;break-after:auto}
+    table.doc tr{break-inside:avoid}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+  @media(max-width:1000px){.app{flex-direction:column}.panel{width:100%;max-width:none;height:auto}
+    .preview-wrap{height:auto}.sheet{transform:scale(.92);transform-origin:top center}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ FORM PANEL ============ -->
+  <div class="panel">
+    <h1>Offerte &amp; Rechnung – Generator</h1>
+    <p class="sub">Werte eingeben → Vorschau rechts. <b>Drucken / Als PDF speichern</b> erzeugt ein sauberes A4‑PDF (2 Seiten).</p>
+
+    <div class="toolbar">
+      <button class="btn" onclick="window.print()">🖨 Drucken / Als PDF speichern</button>
+      <button class="btn secondary" id="loadExample">Beispiel laden</button>
+      <button class="btn secondary" id="reset">Zurücksetzen</button>
+    </div>
+
+    <fieldset>
+      <legend>Dokument</legend>
+      <div class="row">
+        <div><label>Offerte-/Rechnungs-Nr.</label><input id="nr"></div>
+        <div><label>Betreff</label><input id="betreff"></div>
+      </div>
+      <div class="row">
+        <div><label>Offert-/Rechnungsdatum</label><input id="datum" type="date"></div>
+        <div><label>Gültig bis (Anzeige-Text)</label><input id="gueltig" placeholder="31.06.2026"></div>
+      </div>
+      <div class="row">
+        <div><label>MWST-Satz (%)</label><input id="mwst" type="number" step="0.1" value="8.1"></div>
+        <div><label>Währung</label><input id="waehrung" value="CHF"></div>
+      </div>
+      <label>Lieferung (Text)</label><input id="lieferung" value="gem. Abspr.">
+    </fieldset>
+
+    <fieldset>
+      <legend>Verkäufer (Absender)</legend>
+      <div class="row">
+        <div><label>Firma (Briefkopf-Zeile)</label><input id="v_firma"></div>
+        <div><label>Handelsname (Fuss)</label><input id="v_handel"></div>
+      </div>
+      <div class="row">
+        <div><label>Strasse</label><input id="v_strasse"></div>
+        <div><label>PLZ / Ort</label><input id="v_ort"></div>
+      </div>
+      <label>MWST-Nr.</label><input id="v_mwst">
+      <div class="row">
+        <div><label>Ansprechpartner</label><input id="v_kontakt"></div>
+        <div><label>Geschäftsführer (Unterschrift)</label><input id="v_gf"></div>
+      </div>
+      <div class="row">
+        <div><label>E-Mail</label><input id="v_mail"></div>
+        <div><label>Telefon</label><input id="v_tel"></div>
+      </div>
+      <div class="row">
+        <div><label>Bank</label><input id="v_bank"></div>
+        <div><label>IBAN / Kontonummer</label><input id="v_iban"></div>
+      </div>
+      <label>Logo ersetzen (optional)</label><input id="logoFile" type="file" accept="image/*">
+    </fieldset>
+
+    <fieldset>
+      <legend>Kunde (Empfänger)</legend>
+      <label>Firma</label><input id="k_firma">
+      <div class="row">
+        <div><label>Strasse</label><input id="k_strasse"></div>
+        <div><label>PLZ / Ort</label><input id="k_ort"></div>
+      </div>
+      <label>MWST-Nr.</label><input id="k_mwst">
+      <div class="row">
+        <div><label>Anrede</label><input id="k_anrede" placeholder="Sehr geehrter Herr Durguti"></div>
+        <div><label>Unterzeichner rechts</label><input id="k_sign" placeholder="Harbin Durguti (…)"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Positionen</legend>
+      <table class="items">
+        <thead><tr>
+          <th style="width:18%">Artikel</th><th>Bezeichnung</th>
+          <th style="width:16%">Anzahl</th><th style="width:15%">Preis/St</th>
+          <th style="width:16%">Total überschr.</th><th></th>
+        </tr></thead>
+        <tbody id="itemBody"></tbody>
+      </table>
+      <button class="btn secondary tiny" id="addRow" style="margin-top:8px">+ Position hinzufügen</button>
+      <p class="sub" style="margin-top:8px">„Total überschreiben" füllen, um eine fixe Summe (z. B. Rabatt <code>-150</code>) zu erzwingen. „Anzahl" darf eine Einheit enthalten (z. B. <code>250 kg</code>).</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Zahlungskonditionen</legend>
+      <div class="row">
+        <div><label>Anzahlung (%)</label><input id="p_pct" type="number" value="50"></div>
+        <div><label>Frist 1. Zahlung</label><input id="p_frist1" value="5 Werktagen"></div>
+        <div><label>Frist 2. Zahlung</label><input id="p_frist2" value="30 Tagen"></div>
+      </div>
+      <label>Konditionen-Zeile (Seite 1)</label>
+      <input id="p_kondzeile" value="50 % 5 Tage nach Vertragsabschluss / 50 % nach Lieferung.">
+    </fieldset>
+  </div>
+
+  <!-- ============ PREVIEW ============ -->
+  <div class="preview-wrap">
+
+    <!-- ---- PAGE 1: Offerte ---- -->
+    <div class="sheet" id="page1">
+      <div class="lh">
+        <img id="logoImg1" src="oev_logo.png" alt="Logo">
+      </div>
+      <hr class="lh-rule">
+      <div class="sender-line" id="o_sender"></div>
+
+      <div class="topgrid">
+        <div class="addr" id="o_addr"></div>
+        <div class="meta">
+          <div class="mblock">
+            <div class="mrow"><div class="k">Offerte-Nr:</div><div class="v" id="o_nr"></div></div>
+            <div class="mrow"><div class="k">Offertdatum:</div><div class="v" id="o_datum"></div></div>
+          </div>
+          <div class="mblock">
+            <div class="mrow"><div class="k">Ansprechpartner:</div><div class="v" id="o_kontakt"></div></div>
+            <div class="mrow"><div class="k">E-Mail:</div><div class="v" id="o_mail"></div></div>
+            <div class="mrow"><div class="k">Telefon:</div><div class="v" id="o_tel"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="doc-h" id="o_heading">Offerte: Lieferung</div>
+      <p class="body" id="o_anrede"></p>
+      <p class="body">Vielen Dank für Ihre Offertanfrage betreffend der Lieferung.<br>
+         Gerne unterbreiten wir Ihnen folgendes Angebot:</p>
+
+      <table class="doc offerte">
+        <thead><tr>
+          <th>Pos</th><th>Artikel</th><th>Bezeichnung</th>
+          <th class="num">Anzahl</th><th class="num">Preis/St</th><th class="num">Total in <span class="cur"></span></th>
+        </tr></thead>
+        <tbody id="o_rows"></tbody>
+        <tfoot id="o_foot"></tfoot>
+      </table>
+
+      <p class="body">Liefertermin gemäss Absprache.<br>
+         Gültigkeit der Offerte bis: <span id="o_gueltig"></span></p>
+
+      <div class="pay-h">Zahlungskonditionen:</div>
+      <p class="body" id="o_kond"></p>
+      <p class="body">Informationen zur Zahlung: siehe nächste Seite.</p>
+
+      <p class="body">Es würde uns freuen, diesen Auftrag für Sie auszuführen.</p>
+      <p class="body">Freundliche Grüsse</p>
+
+      <div class="sig">
+        <div class="col"><span id="o_gf"></span> <i>Geschäftsführer</i><div class="line"></div></div>
+        <div class="col" style="text-align:right"><i id="o_sign"></i><div class="line"></div></div>
+      </div>
+
+      <div class="pagefoot" id="o_pagefoot"></div>
+    </div>
+
+    <!-- ---- PAGE 2: Rechnung ---- -->
+    <div class="sheet" id="page2">
+      <div class="lh" style="align-items:flex-end">
+        <img id="logoImg2" src="oev_logo.png" alt="Logo" style="height:22mm">
+      </div>
+
+      <div class="topgrid" style="margin-top:6mm">
+        <div class="meta" style="min-width:auto">
+          <div>Rechnungs-Nr.: <span id="r_nr"></span></div>
+          <div style="margin-top:4mm">Datum/Zeitraum der Lieferung: <span id="r_lief"></span></div>
+          <div>Rechnungsdatum: <span id="r_datum"></span></div>
+          <div style="font-weight:bold">Fälligkeitsdatum: siehe Bemerkung*</div>
+        </div>
+        <div class="addr" id="r_addr" style="text-align:right;font-style:italic"></div>
+      </div>
+
+      <table class="doc invoice" style="margin-top:7mm">
+        <thead><tr>
+          <th>Position</th><th>Artikel</th><th>Beschreibung</th>
+          <th class="num">Stückpreis</th><th class="num">Anzahl</th><th class="num">Summe</th>
+        </tr></thead>
+        <tbody id="r_rows"></tbody>
+        <tfoot>
+          <tr class="sumrow"><td colspan="5" style="text-align:right">Gesamtsumme inkl. MWST</td>
+              <td class="num" id="r_gross"></td></tr>
+        </tfoot>
+      </table>
+
+      <div class="inv-note">
+        <p id="r_note1"></p>
+        <p id="r_note2"></p>
+      </div>
+
+      <div class="footblock">
+        <div>
+          <div class="fb-name" id="r_handel"></div>
+          <div id="r_vadr"></div>
+          <div id="r_vmwst"></div>
+          <div id="r_vgf"></div>
+        </div>
+        <div style="text-align:right">
+          <div id="r_bank"></div>
+          <div id="r_iban"></div>
+        </div>
+      </div>
+
+      <p class="thanks">Mit bestem Dank für den geschätzten Auftrag.</p>
+
+      <div class="pagefoot" id="r_pagefoot"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ===================== Defaults (Oev Global / Smash Burger Bear example) ===================== */
+const DEFAULTS = {
+  nr:"026370", betreff:"Lieferung", datum:"2026-06-23", gueltig:"31.06.2026",
+  mwst:"8.1", waehrung:"CHF", lieferung:"gem. Abspr.",
+  v_firma:"Oev Global Enterprises", v_handel:"Maloev",
+  v_strasse:"Barblanstrasse 14", v_ort:"7000 Chur", v_mwst:"CHE-253.800.997",
+  v_kontakt:"Yusuf Övünç", v_gf:"Yusuf Övünç",
+  v_mail:"yusufoevuenc2004@gmail.com", v_tel:"+41 78 230 30 08",
+  v_bank:"Graubündner Kantonalbank", v_iban:"CH06 0077 4010 4891 1310 0",
+  k_firma:"The Smash Burger Bear GmbH", k_strasse:"Wallisellenstrasse 23",
+  k_ort:"8600 Dübendorf", k_mwst:"CHE-161.271.681",
+  k_anrede:"Sehr geehrter Herr Durguti", k_sign:"Harbin Durguti (The Smash Burger Bear GmbH)",
+  p_pct:"50", p_frist1:"5 Werktagen", p_frist2:"30 Tagen",
+  p_kondzeile:"50 % 5 Tage nach Vertragsabschluss / 50 % nach Lieferung.",
+  items:[
+    {artikel:"Standard", bez:"Burger-Box Standard", anzahl:"10'000", preis:"0.28", override:""},
+    {artikel:"Standard", bez:"Burgerpapier Rabatt", anzahl:"", preis:"", override:"-150"}
+  ]
+};
+
+const SIMPLE_IDS = ["nr","betreff","datum","gueltig","mwst","waehrung","lieferung",
+  "v_firma","v_handel","v_strasse","v_ort","v_mwst","v_kontakt","v_gf","v_mail","v_tel",
+  "v_bank","v_iban","k_firma","k_strasse","k_ort","k_mwst","k_anrede","k_sign",
+  "p_pct","p_frist1","p_frist2","p_kondzeile"];
+const STORE_KEY = "offerte_state_v1";
+let logoDataUrl = null;
+
+/* ===================== Formatting helpers ===================== */
+// Swiss thousands with apostrophe, dot decimals.
+function fmtNum(v, decimals){
+  if(v===null||v===undefined||isNaN(v)) return "";
+  const neg = v<0; v=Math.abs(v);
+  let s = (decimals!=null) ? v.toFixed(decimals) : String(v);
+  let [int,frac] = s.split(".");
+  int = int.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+  let out = frac!=null ? int+"."+frac : int;
+  return (neg?"-":"")+out;
+}
+// Currency in the example style: trailing ".-"; perUnit appends " / kg" etc.
+function fmtCHF(v, {trailing=true, decimals=2, perUnit=null}={}){
+  if(v===null||v===undefined||isNaN(v)) return "";
+  let s = fmtNum(v, decimals);
+  // example shows e.g. 800.-  /  0.28.-  /  1'432.35.-
+  if(trailing) s += ".-";
+  if(perUnit) s += " / "+perUnit;
+  return s;
+}
+// parse leading number out of an "Anzahl" like "250 kg" or "10'000"
+function parseAnzahl(str){
+  if(str==null) return {num:null, unit:""};
+  const cleaned = String(str).replace(/['’]/g,"").trim();
+  const m = cleaned.match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);
+  if(!m) return {num:null, unit:String(str).trim()};
+  return {num:parseFloat(m[1]), unit:m[2].trim()};
+}
+function parsePrice(str){
+  if(str==null||str==="") return null;
+  const c = String(str).replace(/['’]/g,"").replace(/[^0-9.\-]/g,"");
+  const n = parseFloat(c); return isNaN(n)?null:n;
+}
+function ddmmyyyy(iso){
+  if(!iso) return "";
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return iso; // already a display string
+  return `${m[3]}.${m[2]}.${m[1]}`;
+}
+
+/* ===================== State I/O ===================== */
+function readState(){
+  const s = {items:[]};
+  SIMPLE_IDS.forEach(id=> s[id]=document.getElementById(id).value);
+  document.querySelectorAll("#itemBody .itemrow").forEach(tr=>{
+    s.items.push({
+      artikel: tr.querySelector(".f-artikel").value,
+      bez:     tr.querySelector(".f-bez").value,
+      anzahl:  tr.querySelector(".f-anzahl").value,
+      preis:   tr.querySelector(".f-preis").value,
+      override:tr.querySelector(".f-override").value
+    });
+  });
+  s.logo = logoDataUrl;
+  return s;
+}
+function applyState(s){
+  SIMPLE_IDS.forEach(id=>{ if(s[id]!=null) document.getElementById(id).value=s[id]; });
+  document.getElementById("itemBody").innerHTML="";
+  (s.items||[]).forEach(addItemRow);
+  if(!s.items || !s.items.length) addItemRow({});
+  if(s.logo){ logoDataUrl=s.logo; setLogo(s.logo); }
+}
+function setLogo(url){ logoImg1.src=url; logoImg2.src=url; }
+
+/* ===================== Item rows ===================== */
+function addItemRow(data={}){
+  const tr=document.createElement("tr"); tr.className="itemrow";
+  tr.innerHTML=`
+    <td><input class="f-artikel" value="${esc(data.artikel||'')}"></td>
+    <td><input class="f-bez" value="${esc(data.bez||'')}"></td>
+    <td><input class="f-anzahl" value="${esc(data.anzahl||'')}"></td>
+    <td><input class="f-preis" value="${esc(data.preis||'')}"></td>
+    <td><input class="f-override" value="${esc(data.override||'')}"></td>
+    <td class="ctl"><button class="btn danger tiny" type="button">✕</button></td>`;
+  tr.querySelector("button").onclick=()=>{tr.remove();render();};
+  tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",render));
+  document.getElementById("itemBody").appendChild(tr);
+}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+/* ===================== Compute + Render ===================== */
+function computeRows(state){
+  // returns {rows:[{...}], subtotal}
+  let subtotal=0; const rows=[];
+  state.items.forEach((it,i)=>{
+    const {num:anz} = parseAnzahl(it.anzahl);
+    const price = parsePrice(it.preis);
+    const ov = it.override!=="" ? parsePrice(it.override) : null;
+    let total=null;
+    if(ov!=null) total=ov;
+    else if(anz!=null && price!=null) total = anz*price;
+    if(total!=null) subtotal += total;
+    rows.push({pos:i+1, artikel:it.artikel, bez:it.bez, anzahl:it.anzahl,
+               price, total, isDiscount: total!=null && total<0});
+  });
+  return {rows, subtotal};
+}
+
+function render(){
+  const s = readState();
+  const cur = s.waehrung || "CHF";
+  document.querySelectorAll(".cur").forEach(e=>e.textContent=cur);
+
+  // ---- Page 1 header ----
+  o_sender.textContent = `${s.v_firma} · ${s.v_strasse} · ${s.v_ort}`;
+  o_addr.innerHTML = `<div class="firma">${esc(s.k_firma)}</div>${esc(s.k_strasse)}<br>${esc(s.k_ort)}`;
+  o_nr.textContent=s.nr; o_datum.textContent=ddmmyyyy(s.datum);
+  o_kontakt.textContent=s.v_kontakt; o_mail.textContent=s.v_mail; o_tel.textContent=s.v_tel;
+  o_heading.textContent=`Offerte: ${s.betreff||""}`;
+  o_anrede.textContent=s.k_anrede;
+  o_gueltig.textContent=ddmmyyyy(s.gueltig);
+  o_gf.textContent=s.v_gf; o_sign.textContent=s.k_sign;
+  o_kond.textContent=s.p_kondzeile;
+  o_pagefoot.innerHTML=`${esc(s.v_firma)}<br>${esc(s.v_strasse)} | ${esc(s.v_mail)} | ${esc(s.v_tel)}`;
+
+  // ---- compute ----
+  const {rows, subtotal} = computeRows(s);
+  const rate = parseFloat(s.mwst)||0;
+  const mwstAmt = subtotal*rate/100;
+  const gross = subtotal+mwstAmt;
+
+  // ---- Page 1 item rows ----
+  o_rows.innerHTML = rows.map(r=>`
+    <tr>
+      <td class="c">${r.pos}</td>
+      <td>${esc(r.artikel||"")}</td>
+      <td>${esc(r.bez||"")}</td>
+      <td class="num">${esc(r.anzahl||"")}</td>
+      <td class="num">${r.price!=null?fmtCHF(r.price,{decimals:2}):""}</td>
+      <td class="num">${r.total!=null?(r.isDiscount?"- "+fmtCHF(Math.abs(r.total),{decimals:2}):fmtCHF(r.total,{decimals:2})):""}</td>
+    </tr>`).join("");
+
+  o_foot.innerHTML = `
+    <tr class="tot"><td colspan="3" class="lbl"><b>Total</b> <span style="font-weight:normal;font-size:8.5pt">(exkl. MWST ${fmtNum(rate,1)}%)</span></td>
+        <td></td><td></td><td class="num"><b>${fmtCHF(subtotal,{decimals:2})}</b></td></tr>
+    <tr class="tot"><td colspan="3" class="lbl"><b>Total</b> <span style="font-weight:normal;font-size:8.5pt">(inkl. MWST ${fmtNum(rate,1)}%)</span></td>
+        <td></td><td></td><td class="num"><b>${fmtCHF(gross,{decimals:2})}</b></td></tr>`;
+
+  // ---- Page 2 ----
+  r_nr.textContent=s.nr; r_lief.textContent=s.lieferung; r_datum.textContent=ddmmyyyy(s.datum);
+  r_addr.innerHTML=`<div class="firma" style="font-weight:bold">${esc(s.k_firma)}</div>${esc(s.k_strasse)}<br>${esc(s.k_ort)}<br>MWST-Nr.: ${esc(s.k_mwst)}`;
+  r_rows.innerHTML = rows.map(r=>`
+    <tr>
+      <td class="c">${String(r.pos).padStart(3,"0")}</td>
+      <td>${esc(r.artikel||"")}</td>
+      <td>${esc(r.bez||"")}</td>
+      <td class="num">${r.price!=null?fmtCHF(r.price,{decimals:2}):""}</td>
+      <td class="num">${esc(r.anzahl||"")}</td>
+      <td class="num">${r.total!=null?(r.isDiscount?"- "+fmtCHF(Math.abs(r.total),{decimals:2}):fmtCHF(r.total,{decimals:2})):""}</td>
+    </tr>`).join("");
+  // Gesamtsumme shown WITHOUT trailing ".-" to match the example (2'864.65)
+  r_gross.textContent = fmtNum(gross,2);
+
+  // ---- payment split on gross ----
+  const pct = parseFloat(s.p_pct)||0;
+  // First share rounded to nearest 5 Rappen (0.05), Swiss style; remainder goes to share B
+  // so the two halves still sum exactly to the gross total (matches the example: 1'432.35 + 1'432.30).
+  const shareA = Math.round(gross*pct/100*20)/20;
+  const shareB = Math.round((gross-shareA)*100)/100;
+  const cA = `${cur} ${fmtCHF(shareA,{decimals:2})}`;
+  const cB = `${cur} ${fmtCHF(shareB,{decimals:2})}`;
+  r_note1.innerHTML = `*Ab Unterschrift der Offerte sind ${fmtNum(pct,0)}% des Betrags (${cA}) innerhalb von ${esc(s.p_frist1)} fällig.`;
+  r_note2.innerHTML = `Nach der Lieferung sind ${fmtNum(100-pct,0)}% des Betrags (${cB}) innerhalb von ${esc(s.p_frist2)} fällig.`;
+
+  r_handel.textContent=s.v_handel;
+  r_vadr.textContent=`${s.v_strasse}, ${s.v_ort}`;
+  r_vmwst.textContent=`MWST-Nr.: ${s.v_mwst}`;
+  r_vgf.textContent=s.v_gf;
+  r_bank.textContent=s.v_bank;
+  r_iban.textContent=`Kontonummer: ${s.v_iban}`;
+  r_pagefoot.innerHTML=`${esc(s.v_firma)}<br>${esc(s.v_strasse)} | ${esc(s.v_mail)} | ${esc(s.v_tel)}`;
+
+  // autosave
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(readState())); }catch(e){}
+}
+
+/* ===================== Wiring ===================== */
+SIMPLE_IDS.forEach(id=>document.getElementById(id).addEventListener("input",render));
+document.getElementById("addRow").onclick=()=>{addItemRow({});render();};
+document.getElementById("loadExample").onclick=()=>{applyState(structuredClone(DEFAULTS));render();};
+document.getElementById("reset").onclick=()=>{
+  try{localStorage.removeItem(STORE_KEY);}catch(e){}
+  logoDataUrl=null; setLogo("oev_logo.png");
+  applyState(structuredClone(DEFAULTS)); render();
+};
+document.getElementById("logoFile").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{logoDataUrl=rd.result; setLogo(rd.result); render();}; rd.readAsDataURL(f);
+};
+
+/* ===================== Init ===================== */
+(function init(){
+  let saved=null;
+  try{ saved=JSON.parse(localStorage.getItem(STORE_KEY)); }catch(e){}
+  applyState(saved && saved.nr!=null ? saved : structuredClone(DEFAULTS));
+  render();
+})();
+</script>
+</body>
+</html>
