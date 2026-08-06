@@ -5,55 +5,89 @@ Läuft vollständig im Browser, ohne Server und ohne Konto. Alle Daten bleiben l
 
 **Online:** https://alekswithk.github.io/Maloev/
 
-## Bedienung
+## Ablauf
 
-1. Oben **Offerte**, **Rechnung** oder **Beides** wählen.
-2. Felder ausfüllen – die Vorschau rechts aktualisiert sich sofort.
-3. **Drucken / Als PDF speichern** → im Druckdialog „Als PDF sichern" wählen.
-   Der Dateiname wird automatisch gesetzt, z. B. `Rechnung_RE-2026-02_Nordex 2 GmbH.pdf`.
+Oben wählen: **Offerte**, **Rechnung** oder **Beides**. Darunter vier Abschnitte,
+die man der Reihe nach durchgeht – jeder zeigt im Kopf, was drinsteht, und
+bekommt ein Häkchen, sobald er vollständig ist:
+
+| | Abschnitt | Inhalt |
+|---|---|---|
+| 1 | Kunde | Firma eintippen, gespeicherte Kunden werden vorgeschlagen |
+| 2 | Positionen | Bezeichnung, Menge, Einheit, Preis – Betrag rechnet sich |
+| 3 | Zahlung & Fristen | Nummern, Daten, MWST, Rabatt, Akontozahlung |
+| 4 | Prüfen & Drucken | Prüfliste, Bemerkung, QR-Beilage, Archiv |
+
+Alles, was sich nie ändert – Firma, Adresse, UID, Bank, Standardtexte – steht
+einmalig unter **⚙ Einstellungen**.
+
+Zum Schluss **Drucken / Als PDF speichern** und im Druckdialog „Als PDF sichern"
+wählen. Der Dateiname wird gesetzt, z. B. `Rechnung_RE-2026-02_Nordex 2 GmbH.pdf`.
 
 ## Was automatisch passiert
 
 | Thema | Verhalten |
 |---|---|
-| Logo | Fest im Dokument eingebettet, auf jeder Seite, nicht entfernbar |
-| Gültigkeit der Offerte | Offertdatum + 1 Monat (Monatsende wird korrekt gekappt) |
-| Fälligkeitsdatum | Rechnungsdatum + Zahlungsfrist in Tagen |
+| Neues Dokument | Vergibt Nummer, setzt Datum auf heute und Fristen aus den Einstellungen |
+| Logo | Fest eingebettet, auf jeder Seite, nicht entfernbar |
+| Gültigkeit der Offerte | Offertdatum + eingestellte Monate (Monatsende wird gekappt) |
+| Fälligkeitsdatum | Rechnungsdatum + Zahlungsfrist |
 | Referenz | „Offerte Nr. …" aus der Offertnummer |
-| Nummern | Fortlaufend: Offerte `026373`, Rechnung `RE-2026-02` (Jahreswechsel setzt zurück) |
-| Info-Texte | Aus Akontozahlung, Rabatt, Frist und Betrag erzeugt |
-| Rundung | Endbetrag auf 0.05 (Rappenrundung), Zwischentotale rappengenau |
+| Nummern | Offerte `026373`, Rechnung `RE-2026-02` (Jahreswechsel setzt zurück) |
+| Info-Texte | Aus Akontozahlung, Rabatt und Frist erzeugt |
+| Kunden | Werden beim Drucken gemerkt und später vorgeschlagen |
+| Archiv | Jedes gedruckte Dokument wird automatisch abgelegt |
+| Positionen | Leere Zeile hängt sich selbst an; Betrag = Menge × Preis |
+| Rundung | Endbetrag auf 0.05, Zwischentotale rappengenau |
 
-Automatikfelder lassen sich per Häkchen abschalten und dann von Hand überschreiben.
+Jede Automatik lässt sich per Häkchen abschalten und von Hand überschreiben.
+Beim Betrag einer Position gilt ein eingetippter Wert; **↺** stellt die
+Berechnung wieder her.
 
-## Rechnungsformat
+## Prüfung vor dem Drucken
 
-Die Rechnung folgt dem Aufbau der bestehenden Maloev-Rechnung:
-Deckblatt mit Logo, „RECHNUNG", Absender, Empfänger und Meta-Tabelle;
-danach „Rechnungsdetails" mit Positionen, Zwischentotalen, MWST, Akontozahlung
-und „Total Offener Betrag", gefolgt von Info, Zahlung und Vielen Dank.
+Abschnitt 4 sammelt, was fehlt oder unstimmig ist – fehlender Kunde, keine
+Position, Datum verdreht, ungewöhnlicher MWST-Satz, IBAN mit falscher
+Prüfziffer, UID im falschen Format, Akonto grösser als der Rechnungsbetrag.
+Fehler blockieren den Druck nicht, sie werden nur vorher gezeigt.
+
+## Das fertige Dokument
+
+Offerte und Rechnung teilen sich ein Layout: Logo und Titel oben, Absenderzeile,
+Empfängerblock, Eckdaten rechts, Positionstabelle, Summenblock, Schlusstext und
+eine Fusszeile mit Firmendaten und Seitenzahl. Schwarz-weiss gesetzt, damit es
+auf jedem Drucker gleich aussieht.
+
+Der Empfängerblock sitzt bei 20 mm von links und 47 mm von oben – der Beleg
+passt gefaltet in ein Fensterkuvert C5/C6. Bei vielen Positionen bricht die
+Tabelle um, wiederholt ihren Kopf und markiert die Folgeseiten als
+„Fortsetzung".
+
+Für einen klassischen Serif-Look lässt sich `--doc-font` in `index.html` auf
+`"Times New Roman", Times, serif` umstellen.
 
 ## QR-Rechnung anhängen
 
 Unter **QR-Rechnung (Beilage)** den Einzahlungsschein hochladen – er wird als
-letzte Seite mitgedruckt.
+letzte Seite mitgedruckt und in den Info-Texten als Seitenverweis erwähnt.
 
 - **Bild** (PNG/JPG): funktioniert immer.
 - **PDF**: wird beim Hochladen in ein Bild umgewandelt (via `vendor/pdf.min.mjs`).
-  Das funktioniert nur, wenn die Seite über `http(s)` geöffnet ist – also über den
-  Link oben. Beim Öffnen der Datei per Doppelklick (`file://`) blockiert der Browser
-  das Nachladen; dort bitte ein Bild verwenden.
+  Das braucht `http(s)` – also den Link oben. Beim Öffnen per Doppelklick
+  (`file://`) blockiert der Browser das Nachladen; dort bitte ein Bild verwenden.
 
 Ganzseitige Beilagen werden seitenfüllend gesetzt, schmale Zahlteil-Streifen
 unten auf der Seite.
 
-## Kunden & Archiv
+## Daten
 
-Kunden lassen sich speichern und per Dropdown einsetzen. Fertige Dokumente können
-ins Archiv gelegt, wieder geladen oder dupliziert werden (das Duplikat bekommt
-automatisch neue Nummern und das heutige Datum). **Export (JSON)** sichert Archiv,
-Kunden und Nummernkreise in eine Datei – empfehlenswert, da alles nur im
-Browser-Speicher liegt und beim Löschen der Browserdaten verschwindet.
+Alles liegt im Browser (`localStorage`), getrennt nach Einstellungen, aktuellem
+Beleg, Kunden, Archiv und Nummernkreisen. Archivierte Dokumente speichern die
+Firmendaten mit, damit ein alter Beleg auch nach einem Bankwechsel unverändert
+nachdruckt.
+
+**Export (JSON)** unter Einstellungen sichert alles in eine Datei – empfehlenswert,
+da die Daten beim Löschen der Browserdaten verschwinden.
 
 ## Dateien
 
@@ -61,4 +95,5 @@ Browser-Speicher liegt und beim Löschen der Browserdaten verschwindet.
 index.html    das komplette Werkzeug (Logo als Data-URL eingebettet)
 oev_logo.png  Logo als Einzeldatei (Quelle des eingebetteten Bildes)
 vendor/       pdf.js (Mozilla, Apache-2.0) – nur für den PDF-Upload
+.nojekyll     GitHub Pages liefert vendor/ sonst nicht aus
 ```
