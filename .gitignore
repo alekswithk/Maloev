@@ -1,0 +1,7 @@
+# Dieses Repository ist öffentlich. Erzeugte Offerten und Rechnungen enthalten
+# Kundenadressen, IBAN, Beträge und QR-Zahldaten und gehören nicht hinein.
+*.pdf
+
+# Office-/macOS-Restdateien
+~$*
+.DS_Store

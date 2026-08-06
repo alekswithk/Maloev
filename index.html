@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Offerte &amp; Rechnung – Generator</title>
+<title>Maloev – Offerten &amp; Rechnungen</title>
 <style>
   :root{
     --ink:#1a1a1a; --muted:#666; --line:#999; --grey:#e9e9e9;
-    --accent:#1f4e79; --bg:#eef0f3; --field-bg:#fff; --rule:#444;
+    --accent:#1f4e79; --bg:#eef0f3; --field-bg:#fff;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -15,26 +15,40 @@
 
   /* ---------- App shell ---------- */
   .app{display:flex;min-height:100vh}
-  .panel{width:42%;max-width:560px;min-width:340px;padding:18px 20px 60px;
+  .panel{width:42%;max-width:580px;min-width:340px;padding:18px 20px 60px;
          background:#fafafa;border-right:1px solid #ddd;overflow:auto;height:100vh}
   .preview-wrap{flex:1;padding:24px;overflow:auto;height:100vh}
 
   .panel h1{font-size:18px;margin:0 0 4px}
   .panel .sub{font-size:12px;color:var(--muted);margin:0 0 16px}
-  fieldset{border:1px solid #dcdcdc;border-radius:8px;margin:0 0 14px;padding:12px 12px 6px;background:#fff}
+  fieldset{border:1px solid #dcdcdc;border-radius:8px;margin:0 0 14px;padding:12px 12px 10px;background:#fff}
   legend{font-size:13px;font-weight:700;color:var(--accent);padding:0 6px}
   label{display:block;font-size:11px;color:var(--muted);margin:8px 0 2px}
   input,textarea,select{width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1px solid #ccc;
         border-radius:6px;background:var(--field-bg);color:var(--ink)}
+  input[type=checkbox]{width:auto}
   textarea{resize:vertical;min-height:46px}
   .row{display:flex;gap:8px}
-  .row>div{flex:1}
+  .row>div{flex:1;min-width:0}
   .btn{font:inherit;font-size:13px;padding:8px 12px;border:1px solid var(--accent);background:var(--accent);
        color:#fff;border-radius:6px;cursor:pointer}
   .btn.secondary{background:#fff;color:var(--accent)}
-  .btn.tiny{padding:3px 8px;font-size:12px}
+  .btn.tiny{padding:4px 9px;font-size:12px}
   .btn.danger{border-color:#b33;color:#b33;background:#fff}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+  .inline{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin:6px 0 0}
+  .inline input[type=checkbox]{margin:0}
+  .hint{font-size:11px;color:var(--muted);margin:6px 0 0;line-height:1.45}
+  .hint.warn{color:#a33}
+  .computed{font-size:12px;color:var(--accent);font-weight:600;padding:6px 0 0}
+  .divider{border:0;border-top:1px solid #eee;margin:12px 0 4px}
+
+  /* segmented document-type switch */
+  .seg{display:flex;border:1px solid var(--accent);border-radius:8px;overflow:hidden;margin:2px 0 4px}
+  .seg button{flex:1;border:0;border-right:1px solid var(--accent);background:#fff;color:var(--accent);
+       font:inherit;font-size:13px;font-weight:600;padding:9px 4px;cursor:pointer}
+  .seg button:last-child{border-right:0}
+  .seg button.active{background:var(--accent);color:#fff}
 
   /* items table in form */
   table.items{width:100%;border-collapse:collapse;margin-top:6px}
@@ -43,66 +57,96 @@
   table.items input{padding:4px 5px;font-size:12px}
   .itemrow .ctl{white-space:nowrap}
 
-  /* ---------- A4 preview ---------- */
+  /* ================= A4 sheets ================= */
   .sheet{width:210mm;min-height:297mm;background:#fff;margin:0 auto 26px;
-         box-shadow:0 2px 14px rgba(0,0,0,.18);padding:20mm 18mm;position:relative;
-         font-size:11.2pt;line-height:1.45;color:#000}
-  .sheet .pagefoot{position:absolute;left:18mm;right:18mm;bottom:10mm;text-align:center;
-         font-size:8pt;color:#222;line-height:1.4}
+         box-shadow:0 2px 14px rgba(0,0,0,.18);position:relative;color:#000}
+  /* !important: schlägt die späteren .sheet.qr-Regeln gleicher Spezifität */
+  .sheet.off{display:none!important}
+  .pageno{position:absolute;right:25mm;bottom:12mm;font-size:8pt;color:#444}
 
+  /* ---- Offerte sheet (sans, wie bisher) ---- */
+  .sheet.quote{padding:20mm 18mm;font-family:"Helvetica Neue",Arial,sans-serif;
+         font-size:11.2pt;line-height:1.45}
+  .sheet.quote .pagefoot{position:absolute;left:18mm;right:18mm;bottom:10mm;text-align:center;
+         font-size:8pt;color:#222;line-height:1.4}
   .lh{display:flex;flex-direction:column;align-items:center;margin-bottom:4px}
   .lh img{height:26mm;object-fit:contain}
   .lh-rule{border:0;border-top:1px solid #000;margin:2mm 0 4mm}
-
-  .sender-line{font-size:8.5pt;color:#000;margin-bottom:6mm}
+  .sender-line{font-size:8.5pt;margin-bottom:6mm}
   .topgrid{display:flex;justify-content:space-between;gap:10mm}
   .addr{font-size:11pt;line-height:1.5}
   .addr .firma{font-weight:bold}
   .meta{font-size:9pt;min-width:64mm}
   .meta .mblock{margin-bottom:3mm}
   .meta .mrow{display:flex;gap:6px}
-  .meta .mrow .k{width:30mm;color:#000}
+  .meta .mrow .k{width:30mm}
   .meta .mrow .v{flex:1}
-
   .doc-h{font-weight:bold;font-size:12pt;border-bottom:1px solid #000;padding-bottom:2px;margin:9mm 0 5mm}
   p.body{margin:0 0 3mm}
-
   table.doc{width:100%;border-collapse:collapse;margin:4mm 0;font-size:10pt}
   table.doc th,table.doc td{border:1px solid #999;padding:3px 6px;text-align:left;vertical-align:top}
-  table.doc th{background:transparent;font-weight:bold;font-size:9.5pt}
-  table.doc.invoice th{background:var(--grey);font-size:8.5pt;text-align:center}
+  table.doc th{font-weight:bold;font-size:9.5pt}
   table.doc td.num,table.doc th.num{text-align:right;white-space:nowrap}
   table.doc td.c{text-align:center}
   tr.tot td{border:none;font-weight:bold}
   tr.tot td.lbl{text-align:left}
-  tr.sumrow td{background:var(--grey);font-weight:bold;border-color:#999}
-
   .sig{display:flex;justify-content:space-between;gap:10mm;margin-top:14mm;font-size:10pt}
   .sig .col{flex:1}
   .sig .line{border-top:1px solid #000;margin-top:12mm;padding-top:1mm}
   .pay-h{font-weight:bold;margin:7mm 0 1mm}
 
-  .inv-note{margin:6mm 0;font-size:10pt}
-  .footblock{display:flex;justify-content:space-between;gap:10mm;margin-top:12mm;font-size:9.5pt;font-style:italic}
-  .footblock .fb-name{font-weight:bold}
-  .thanks{text-align:center;margin-top:10mm;font-size:10pt}
+  /* ---- Rechnung sheets (serif, nach Vorlage) ---- */
+  .sheet.inv{padding:23mm 25mm 20mm;font-family:"Times New Roman",Times,serif;
+         font-size:10pt;line-height:1.4}
+  .sheet.inv .ihead{margin-bottom:9mm}
+  .sheet.inv .ihead img{height:25mm;object-fit:contain;display:block}
+  .sheet.inv hr.ihr{border:0;border-top:1.2px solid #000;margin:0 0 7mm}
+  .sheet.inv hr.ithin{border:0;border-top:.8px solid #888;margin:6mm 0}
+  .ititle{font-size:19pt;font-weight:bold;margin:0 0 5mm;letter-spacing:.2px}
+  .iblock{font-size:10pt;line-height:1.45;margin-bottom:7mm}
+  .iblock .b{font-weight:bold}
+  .iblock .gap{height:3.4mm}
+  .ilabel{font-weight:bold;font-size:10pt;margin-bottom:4mm}
+  table.imeta{border-collapse:collapse;font-size:10pt;margin-bottom:7mm}
+  table.imeta td{padding:.9mm 0;vertical-align:top}
+  table.imeta td.k{font-weight:bold;padding-right:8mm;white-space:nowrap}
+
+  .ih2{font-size:15pt;font-weight:bold;margin:0 0 5mm}
+  .ih3{font-size:13pt;font-weight:bold;margin:7mm 0 3mm}
+  table.itab{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
+  table.itab td{border:.8px solid #000;padding:1.6mm 2mm;vertical-align:top;
+        word-wrap:break-word;overflow-wrap:break-word}
+  table.itab td.price{font-weight:bold}
+  table.itab tr.sub td{font-style:italic}
+  table.itab tr.sub td.lbl{font-style:normal}
+  table.itab tr.grand td{font-weight:bold}
+  table.itab tr.grand td.val{font-style:italic}
+  table.itab tr.spacer td{height:5mm}
+  ol.iinfo{font-size:8pt;line-height:1.5;margin:0;padding-left:9mm}
+  ol.iinfo li{margin-bottom:.6mm}
+  .ismall{font-size:8pt;line-height:1.6;margin:0}
+  .ismall .sp{display:block;height:3mm}
+
+  /* ---- QR / Beilage sheet ---- */
+  .sheet.qr{padding:0;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden}
+  .sheet.qr.bottom{justify-content:flex-end}
+  .sheet.qr img{width:210mm;display:block}
 
   /* ---------- Print ---------- */
   @media print{
     @page{size:A4;margin:0}
     body{background:#fff}
-    .panel,.preview-wrap-head,.app .panel{display:none!important}
+    .panel,.mobtabs{display:none!important}
     .preview-wrap{padding:0;height:auto;overflow:visible}
     .sheet{box-shadow:none;margin:0;width:210mm;min-height:297mm;
            page-break-after:always;break-after:page}
-    .sheet:last-child{page-break-after:auto;break-after:auto}
-    table.doc tr{break-inside:avoid}
+    .sheet:last-of-type{page-break-after:auto;break-after:auto}
+    table.doc tr,table.itab tr{break-inside:avoid}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
-  /* ---------- Mobile tab bar (hidden on desktop) ---------- */
+
   .mobtabs{display:none}
 
-  /* ---------- Tablet ---------- */
   @media(max-width:1000px){
     .app{flex-direction:column}
     .panel{width:100%;max-width:none;height:auto;border-right:none}
@@ -110,40 +154,25 @@
     .sheet{transform:scale(.92);transform-origin:top center}
   }
 
-  /* ---------- Phone ---------- */
   @media(max-width:680px){
     body{-webkit-text-size-adjust:100%}
     .app{flex-direction:column;min-height:100vh}
-
-    /* fixed bottom tab bar to switch Eingabe / Vorschau */
     .mobtabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;
              background:#fff;border-top:1px solid #ddd;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
     .mobtabs button{flex:1;border:none;background:none;font:inherit;font-size:14px;font-weight:600;
              padding:13px 0;color:var(--muted);cursor:pointer}
     .mobtabs button.active{color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent)}
-
-    .panel,.preview-wrap{width:100%;max-width:none;height:auto;overflow:visible;
-             padding-bottom:78px} /* clear the tab bar */
+    .panel,.preview-wrap{width:100%;max-width:none;height:auto;overflow:visible;padding-bottom:78px}
     .panel{padding-left:14px;padding-right:14px;border-right:none}
-
-    /* tab visibility — toggled by body class */
     body.show-preview .panel{display:none}
     body:not(.show-preview) .preview-wrap{display:none}
-
-    /* stack all paired fields full-width */
     .row{flex-direction:column;gap:0}
     .toolbar .btn{flex:1 1 100%}
-
-    /* bigger touch targets, no iOS zoom-on-focus (needs >=16px) */
     input,textarea,select{font-size:16px;padding:9px 10px}
     .btn{padding:11px 14px}
-
-    /* fit the A4 sheet to the screen width and keep proportions */
     .preview-wrap{padding:12px 8px;display:flex;flex-direction:column;align-items:center}
     .sheet{transform:scale(var(--mscale,.46));transform-origin:top center;
            margin-bottom:calc(297mm * (var(--mscale,.46) - 1) + 18px)}
-
-    /* ----- reflow the form's item table into stacked cards ----- */
     table.items thead{display:none}
     table.items,table.items tbody,table.items tr,table.items td{display:block;width:100%}
     table.items tr.itemrow{border:1px solid #e0e0e0;border-radius:10px;padding:8px;margin:0 0 12px;background:#fcfcfc}
@@ -157,7 +186,6 @@
 <body>
 <div class="app">
 
-  <!-- ============ MOBILE TAB BAR (phones only) ============ -->
   <nav class="mobtabs" role="tablist">
     <button id="tabEdit" class="active" type="button">✎ Eingabe</button>
     <button id="tabPrev" type="button">📄 Vorschau</button>
@@ -165,69 +193,114 @@
 
   <!-- ============ FORM PANEL ============ -->
   <div class="panel">
-    <h1>Offerte &amp; Rechnung – Generator</h1>
-    <p class="sub">Werte eingeben → Vorschau rechts. <b>Drucken / Als PDF speichern</b> erzeugt ein sauberes A4‑PDF (2 Seiten).</p>
+    <h1>Maloev – Offerten &amp; Rechnungen</h1>
+    <p class="sub">Werte eingeben → Vorschau rechts. <b>Drucken / Als PDF speichern</b> erzeugt ein sauberes A4-PDF.</p>
 
     <div class="toolbar">
-      <button class="btn" onclick="window.print()">🖨 Drucken / Als PDF speichern</button>
+      <button class="btn" id="btnPrint">🖨 Drucken / Als PDF speichern</button>
+      <button class="btn secondary" id="btnArchiveSave">💾 Im Archiv sichern</button>
       <button class="btn secondary" id="loadExample">Beispiel laden</button>
       <button class="btn secondary" id="reset">Zurücksetzen</button>
     </div>
 
     <fieldset>
       <legend>Dokument</legend>
+      <div class="seg" id="segType">
+        <button type="button" data-v="offerte">Offerte</button>
+        <button type="button" data-v="rechnung">Rechnung</button>
+        <button type="button" data-v="beides">Beides</button>
+      </div>
+      <input type="hidden" id="f_doctype" value="beides">
+
       <div class="row">
-        <div><label>Offerte-/Rechnungs-Nr.</label><input id="nr"></div>
-        <div><label>Betreff</label><input id="betreff"></div>
+        <div><label>Betreff (Offerte)</label><input id="f_betreff"></div>
+        <div><label>Währung</label><input id="f_waehrung" value="CHF"></div>
+      </div>
+
+      <hr class="divider">
+      <div class="row">
+        <div><label>Offerte-Nr.</label><input id="f_onr"></div>
+        <div><label>Offertdatum</label><input id="f_odatum" type="date"></div>
       </div>
       <div class="row">
-        <div><label>Offert-/Rechnungsdatum</label><input id="datum" type="date"></div>
-        <div><label>Gültig bis (Anzeige-Text)</label><input id="gueltig" placeholder="31.06.2026"></div>
+        <div><label>Gültig bis</label><input id="f_gueltig" type="date"></div>
+        <div><label>Lieferung (Text)</label><input id="f_lieferung" value="gem. Abspr."></div>
+      </div>
+      <p class="inline"><input type="checkbox" id="f_gueltig_auto" checked>
+        <label for="f_gueltig_auto" style="margin:0">Gültigkeit automatisch = Offertdatum + 1 Monat</label></p>
+
+      <hr class="divider">
+      <div class="row">
+        <div><label>Rechnungs-Nr.</label><input id="f_rnr"></div>
+        <div><label>Rechnungsdatum</label><input id="f_rdatum" type="date"></div>
       </div>
       <div class="row">
-        <div><label>MWST-Satz (%)</label><input id="mwst" type="number" step="0.1" value="8.1"></div>
-        <div><label>Währung</label><input id="waehrung" value="CHF"></div>
+        <div><label>Leistungsdatum</label><input id="f_ldatum" type="date"></div>
+        <div><label>Zahlungsfrist (Tage)</label><input id="f_frist" type="number" min="0" value="30"></div>
       </div>
-      <label>Lieferung (Text)</label><input id="lieferung" value="gem. Abspr.">
+      <label>Referenz</label><input id="f_referenz" placeholder="Offerte Nr. 026372">
+      <p class="inline"><input type="checkbox" id="f_referenz_auto" checked>
+        <label for="f_referenz_auto" style="margin:0">Referenz automatisch aus Offerte-Nr.</label></p>
+      <div class="computed" id="c_faellig"></div>
+
+      <hr class="divider">
+      <div class="row">
+        <div><label>MWST-Satz (%)</label><input id="f_mwst" type="number" step="0.1" value="8.1"></div>
+        <div><label>&nbsp;</label>
+          <button class="btn secondary tiny" id="btnFromQuote" style="width:100%">Rechnung aus Offerte</button></div>
+      </div>
+      <p class="hint">„Rechnung aus Offerte" vergibt die nächste Rechnungsnummer, setzt Rechnungs-/Leistungsdatum
+        auf heute und trägt die Offerte als Referenz ein.</p>
     </fieldset>
 
     <fieldset>
       <legend>Verkäufer (Absender)</legend>
       <div class="row">
-        <div><label>Firma (Briefkopf-Zeile)</label><input id="v_firma"></div>
-        <div><label>Handelsname (Fuss)</label><input id="v_handel"></div>
+        <div><label>Firma (Briefkopf Offerte)</label><input id="f_v_firma"></div>
+        <div><label>Handelsname (Rechnung)</label><input id="f_v_handel"></div>
+      </div>
+      <label>Inhaber-Zeile</label><input id="f_v_inhaber" placeholder="Inh. Y. Övünc">
+      <div class="row">
+        <div><label>Strasse</label><input id="f_v_strasse"></div>
+        <div><label>PLZ / Ort</label><input id="f_v_ort"></div>
+      </div>
+      <label>UID / MWST-Nr.</label><input id="f_v_mwst">
+      <div class="row">
+        <div><label>Ansprechpartner</label><input id="f_v_kontakt"></div>
+        <div><label>Geschäftsführer (Unterschrift)</label><input id="f_v_gf"></div>
       </div>
       <div class="row">
-        <div><label>Strasse</label><input id="v_strasse"></div>
-        <div><label>PLZ / Ort</label><input id="v_ort"></div>
-      </div>
-      <label>MWST-Nr.</label><input id="v_mwst">
-      <div class="row">
-        <div><label>Ansprechpartner</label><input id="v_kontakt"></div>
-        <div><label>Geschäftsführer (Unterschrift)</label><input id="v_gf"></div>
+        <div><label>E-Mail</label><input id="f_v_mail"></div>
+        <div><label>Telefon</label><input id="f_v_tel"></div>
       </div>
       <div class="row">
-        <div><label>E-Mail</label><input id="v_mail"></div>
-        <div><label>Telefon</label><input id="v_tel"></div>
+        <div><label>Bank</label><input id="f_v_bank"></div>
+        <div><label>IBAN</label><input id="f_v_iban"></div>
       </div>
-      <div class="row">
-        <div><label>Bank</label><input id="v_bank"></div>
-        <div><label>IBAN / Kontonummer</label><input id="v_iban"></div>
-      </div>
-      <label>Logo ersetzen (optional)</label><input id="logoFile" type="file" accept="image/*">
+      <div class="computed" id="c_iban"></div>
+      <p class="hint">Das Logo ist fest im Dokument hinterlegt und erscheint auf jeder Offerte und Rechnung
+        automatisch – es kann nicht entfernt oder ersetzt werden.</p>
     </fieldset>
 
     <fieldset>
       <legend>Kunde (Empfänger)</legend>
-      <label>Firma</label><input id="k_firma">
       <div class="row">
-        <div><label>Strasse</label><input id="k_strasse"></div>
-        <div><label>PLZ / Ort</label><input id="k_ort"></div>
+        <div style="flex:2"><label>Gespeicherte Kunden</label>
+          <select id="custSel"><option value="">– auswählen –</option></select></div>
+        <div><label>&nbsp;</label>
+          <button class="btn secondary tiny" id="custSave" style="width:100%">Kunde sichern</button></div>
+        <div><label>&nbsp;</label>
+          <button class="btn danger tiny" id="custDel" style="width:100%">Löschen</button></div>
       </div>
-      <label>MWST-Nr.</label><input id="k_mwst">
+      <label>Firma</label><input id="f_k_firma">
       <div class="row">
-        <div><label>Anrede</label><input id="k_anrede" placeholder="Sehr geehrter Herr Durguti"></div>
-        <div><label>Unterzeichner rechts</label><input id="k_sign" placeholder="Harbin Durguti (…)"></div>
+        <div><label>Strasse</label><input id="f_k_strasse"></div>
+        <div><label>PLZ / Ort</label><input id="f_k_ort"></div>
+      </div>
+      <label>MWST-Nr.</label><input id="f_k_mwst">
+      <div class="row">
+        <div><label>Anrede (Offerte)</label><input id="f_k_anrede" placeholder="Sehr geehrter Herr Durguti"></div>
+        <div><label>Unterzeichner rechts</label><input id="f_k_sign" placeholder="Harbin Durguti (…)"></div>
       </div>
     </fieldset>
 
@@ -235,388 +308,878 @@
       <legend>Positionen</legend>
       <table class="items">
         <thead><tr>
-          <th style="width:18%">Artikel</th><th>Bezeichnung</th>
-          <th style="width:16%">Anzahl</th><th style="width:15%">Preis/St</th>
-          <th style="width:16%">Total überschr.</th><th></th>
+          <th style="width:18%">Artikel / Mass</th><th>Bezeichnung</th>
+          <th style="width:14%">Anzahl</th><th style="width:14%">Preis/St</th>
+          <th style="width:15%">Total überschr.</th><th></th>
         </tr></thead>
         <tbody id="itemBody"></tbody>
       </table>
       <button class="btn secondary tiny" id="addRow" style="margin-top:8px">+ Position hinzufügen</button>
-      <p class="sub" style="margin-top:8px">„Total überschreiben" füllen, um eine fixe Summe (z. B. Rabatt <code>-150</code>) zu erzwingen. „Anzahl" darf eine Einheit enthalten (z. B. <code>250 kg</code>).</p>
+      <p class="hint">„Total überschreiben" füllen, um eine fixe Summe zu erzwingen.
+        „Anzahl" darf eine Einheit enthalten (z. B. <code>250 kg</code>).</p>
     </fieldset>
 
     <fieldset>
-      <legend>Zahlungskonditionen</legend>
+      <legend>Abzüge &amp; Anzahlungen (Rechnung)</legend>
       <div class="row">
-        <div><label>Anzahlung (%)</label><input id="p_pct" type="number" value="50"></div>
-        <div><label>Frist 1. Zahlung</label><input id="p_frist1" value="5 Werktagen"></div>
-        <div><label>Frist 2. Zahlung</label><input id="p_frist2" value="30 Tagen"></div>
+        <div style="flex:2"><label>Rabatt-Bezeichnung</label><input id="f_rab_label" value="Mengenrabatt"></div>
+        <div><label>Betrag</label><input id="f_rab_wert" type="number" step="0.01" placeholder="0"></div>
+        <div><label>Art</label><select id="f_rab_typ">
+          <option value="chf">Betrag</option><option value="pct">% vom Netto</option></select></div>
       </div>
-      <label>Konditionen-Zeile (Seite 1)</label>
-      <input id="p_kondzeile" value="50 % 5 Tage nach Vertragsabschluss / 50 % nach Lieferung.">
+      <div class="row">
+        <div><label>Akontozahlung (bereits bezahlt)</label><input id="f_akonto" type="number" step="0.01" placeholder="0"></div>
+        <div><label>Datum der Akontozahlung</label><input id="f_akonto_datum" type="date"></div>
+      </div>
+      <p class="inline"><input type="checkbox" id="f_runden" checked>
+        <label for="f_runden" style="margin:0">Endbetrag auf 0.05 runden (Rappenrundung)</label></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Zahlungskonditionen (Offerte)</legend>
+      <div class="row">
+        <div><label>Anzahlung (%)</label><input id="f_p_pct" type="number" value="50"></div>
+        <div><label>Frist 1. Zahlung</label><input id="f_p_frist1" value="5 Werktagen"></div>
+        <div><label>Frist 2. Zahlung</label><input id="f_p_frist2" value="30 Tagen"></div>
+      </div>
+      <label>Konditionen-Zeile</label>
+      <input id="f_p_kondzeile" value="50 % 5 Tage nach Vertragsabschluss / 50 % nach Lieferung.">
+    </fieldset>
+
+    <fieldset>
+      <legend>Texte der Rechnung</legend>
+      <label>Info-Punkte (eine Zeile = ein Punkt)</label>
+      <textarea id="f_info" rows="4"></textarea>
+      <p class="inline"><input type="checkbox" id="f_info_auto" checked>
+        <label for="f_info_auto" style="margin:0">Info-Punkte automatisch erzeugen</label></p>
+      <label>Abschnitt „Zahlung"</label>
+      <textarea id="f_zahlung" rows="2">Bitte begleichen Sie den fälligen Betrag mittels **QR-Rechnung** innerhalb von **{frist} Tagen**</textarea>
+      <label>Abschnitt „Vielen Dank"</label>
+      <textarea id="f_dank" rows="3">Wir bedanken uns herzlich für Ihren Auftrag und das entgegengebrachte Vertrauen.
+Bei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung.</textarea>
+      <p class="hint">Platzhalter: <code>{frist}</code>, <code>{total}</code>, <code>{kunde}</code>,
+        <code>{firma}</code>, <code>{qrseite}</code>, <code>{rechnungsnr}</code>. <code>**fett**</code> wird fett gesetzt.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>QR-Rechnung (Beilage)</legend>
+      <label>QR-Einzahlungsschein hochladen (PDF oder Bild)</label>
+      <input id="f_qrfile" type="file" accept="application/pdf,image/*">
+      <div class="row" style="margin-top:8px">
+        <div><button class="btn danger tiny" id="qrRemove" style="width:100%">QR-Beilage entfernen</button></div>
+      </div>
+      <div class="hint" id="qrStatus">Keine QR-Rechnung hinterlegt.</div>
+      <p class="hint">Die Beilage wird als letzte Seite der Rechnung mitgedruckt. PDFs werden beim Hochladen
+        in ein Bild umgewandelt, damit sie zuverlässig im Druck erscheinen.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Archiv</legend>
+      <label>Gespeicherte Dokumente</label>
+      <select id="arcSel"><option value="">– auswählen –</option></select>
+      <div class="row" style="margin-top:8px">
+        <div><button class="btn secondary tiny" id="arcLoad" style="width:100%">Laden</button></div>
+        <div><button class="btn secondary tiny" id="arcDup" style="width:100%">Duplizieren</button></div>
+        <div><button class="btn danger tiny" id="arcDel" style="width:100%">Löschen</button></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div><button class="btn secondary tiny" id="arcExport" style="width:100%">Export (JSON)</button></div>
+        <div><button class="btn secondary tiny" id="arcImportBtn" style="width:100%">Import (JSON)</button></div>
+      </div>
+      <input id="arcImportFile" type="file" accept="application/json" style="display:none">
+      <p class="hint">Alles wird nur lokal im Browser gespeichert. Der Export sichert Dokumente, Kunden und
+        Nummernkreise in einer Datei.</p>
     </fieldset>
   </div>
 
   <!-- ============ PREVIEW ============ -->
-  <div class="preview-wrap">
+  <div class="preview-wrap" id="previewWrap">
 
-    <!-- ---- PAGE 1: Offerte ---- -->
-    <div class="sheet" id="page1">
-      <div class="lh">
-        <img id="logoImg1" src="oev_logo.png" alt="Logo">
-      </div>
+    <!-- ---------- Offerte ---------- -->
+    <div class="sheet quote" id="pgQuote">
+      <div class="lh"><img class="autologo" alt="Logo"></div>
       <hr class="lh-rule">
-      <div class="sender-line" id="o_sender"></div>
+      <div class="sender-line" id="p_o_sender"></div>
 
       <div class="topgrid">
-        <div class="addr" id="o_addr"></div>
+        <div class="addr" id="p_o_addr"></div>
         <div class="meta">
           <div class="mblock">
-            <div class="mrow"><div class="k">Offerte-Nr:</div><div class="v" id="o_nr"></div></div>
-            <div class="mrow"><div class="k">Offertdatum:</div><div class="v" id="o_datum"></div></div>
+            <div class="mrow"><div class="k">Offerte-Nr:</div><div class="v" id="p_o_nr"></div></div>
+            <div class="mrow"><div class="k">Offertdatum:</div><div class="v" id="p_o_datum"></div></div>
           </div>
           <div class="mblock">
-            <div class="mrow"><div class="k">Ansprechpartner:</div><div class="v" id="o_kontakt"></div></div>
-            <div class="mrow"><div class="k">E-Mail:</div><div class="v" id="o_mail"></div></div>
-            <div class="mrow"><div class="k">Telefon:</div><div class="v" id="o_tel"></div></div>
+            <div class="mrow"><div class="k">Ansprechpartner:</div><div class="v" id="p_o_kontakt"></div></div>
+            <div class="mrow"><div class="k">E-Mail:</div><div class="v" id="p_o_mail"></div></div>
+            <div class="mrow"><div class="k">Telefon:</div><div class="v" id="p_o_tel"></div></div>
           </div>
         </div>
       </div>
 
-      <div class="doc-h" id="o_heading">Offerte: Lieferung</div>
-      <p class="body" id="o_anrede"></p>
+      <div class="doc-h" id="p_o_heading">Offerte</div>
+      <p class="body" id="p_o_anrede"></p>
       <p class="body">Vielen Dank für Ihre Offertanfrage betreffend der Lieferung.<br>
          Gerne unterbreiten wir Ihnen folgendes Angebot:</p>
 
-      <table class="doc offerte">
+      <table class="doc">
         <thead><tr>
           <th>Pos</th><th>Artikel</th><th>Bezeichnung</th>
-          <th class="num">Anzahl</th><th class="num">Preis/St</th><th class="num">Total in <span class="cur"></span></th>
+          <th class="num">Anzahl</th><th class="num">Preis/St</th>
+          <th class="num">Total in <span class="cur"></span></th>
         </tr></thead>
-        <tbody id="o_rows"></tbody>
-        <tfoot id="o_foot"></tfoot>
+        <tbody id="p_o_rows"></tbody>
+        <tfoot id="p_o_foot"></tfoot>
       </table>
 
       <p class="body">Liefertermin gemäss Absprache.<br>
-         Gültigkeit der Offerte bis: <span id="o_gueltig"></span></p>
+         Gültigkeit der Offerte bis: <span id="p_o_gueltig"></span></p>
 
       <div class="pay-h">Zahlungskonditionen:</div>
-      <p class="body" id="o_kond"></p>
-      <p class="body">Informationen zur Zahlung: siehe nächste Seite.</p>
+      <p class="body" id="p_o_kond"></p>
 
       <p class="body">Es würde uns freuen, diesen Auftrag für Sie auszuführen.</p>
       <p class="body">Freundliche Grüsse</p>
 
       <div class="sig">
-        <div class="col"><span id="o_gf"></span> <i>Geschäftsführer</i><div class="line"></div></div>
-        <div class="col" style="text-align:right"><i id="o_sign"></i><div class="line"></div></div>
+        <div class="col"><span id="p_o_gf"></span> <i>Geschäftsführer</i><div class="line"></div></div>
+        <div class="col" style="text-align:right"><i id="p_o_sign"></i><div class="line"></div></div>
       </div>
 
-      <div class="pagefoot" id="o_pagefoot"></div>
+      <div class="pagefoot" id="p_o_pagefoot"></div>
+      <div class="pageno"></div>
     </div>
 
-    <!-- ---- PAGE 2: Rechnung ---- -->
-    <div class="sheet" id="page2">
-      <div class="lh" style="align-items:flex-end">
-        <img id="logoImg2" src="oev_logo.png" alt="Logo" style="height:22mm">
-      </div>
+    <!-- ---------- Rechnung: Deckblatt ---------- -->
+    <div class="sheet inv" id="pgInv1">
+      <div class="ihead"><img class="autologo" alt="Logo"></div>
+      <hr class="ihr">
+      <h1 class="ititle">RECHNUNG</h1>
+      <div class="iblock" id="p_r_sender"></div>
+      <hr class="ihr">
+      <div class="ilabel">an</div>
+      <div class="iblock" id="p_r_recv"></div>
+      <hr class="ihr">
+      <table class="imeta"><tbody id="p_r_meta"></tbody></table>
+      <hr class="ihr">
+      <div class="pageno"></div>
+    </div>
 
-      <div class="topgrid" style="margin-top:6mm">
-        <div class="meta" style="min-width:auto">
-          <div>Rechnungs-Nr.: <span id="r_nr"></span></div>
-          <div style="margin-top:4mm">Datum/Zeitraum der Lieferung: <span id="r_lief"></span></div>
-          <div>Rechnungsdatum: <span id="r_datum"></span></div>
-          <div style="font-weight:bold">Fälligkeitsdatum: siehe Bemerkung*</div>
-        </div>
-        <div class="addr" id="r_addr" style="text-align:right;font-style:italic"></div>
-      </div>
-
-      <table class="doc invoice" style="margin-top:7mm">
-        <thead><tr>
-          <th>Position</th><th>Artikel</th><th>Beschreibung</th>
-          <th class="num">Stückpreis</th><th class="num">Anzahl</th><th class="num">Summe</th>
-        </tr></thead>
-        <tbody id="r_rows"></tbody>
-        <tfoot>
-          <tr class="sumrow"><td colspan="5" style="text-align:right">Gesamtsumme inkl. MWST</td>
-              <td class="num" id="r_gross"></td></tr>
-        </tfoot>
+    <!-- ---------- Rechnung: Details ---------- -->
+    <div class="sheet inv" id="pgInv2">
+      <h2 class="ih2">Rechnungsdetails</h2>
+      <table class="itab">
+        <colgroup>
+          <col style="width:8%"><col style="width:21%"><col style="width:30%">
+          <col style="width:9%"><col style="width:10%"><col style="width:22%">
+        </colgroup>
+        <tbody id="p_r_rows"></tbody>
       </table>
 
-      <div class="inv-note">
-        <p id="r_note1"></p>
-        <p id="r_note2"></p>
-      </div>
+      <h3 class="ih3">Info</h3>
+      <ol class="iinfo" id="p_r_info"></ol>
 
-      <div class="footblock">
-        <div>
-          <div class="fb-name" id="r_handel"></div>
-          <div id="r_vadr"></div>
-          <div id="r_vmwst"></div>
-          <div id="r_vgf"></div>
-        </div>
-        <div style="text-align:right">
-          <div id="r_bank"></div>
-          <div id="r_iban"></div>
-        </div>
-      </div>
+      <hr class="ithin">
+      <h3 class="ih3">Zahlung</h3>
+      <p class="ismall" id="p_r_pay"></p>
 
-      <p class="thanks">Mit bestem Dank für den geschätzten Auftrag.</p>
-
-      <div class="pagefoot" id="r_pagefoot"></div>
+      <hr class="ithin">
+      <h3 class="ih3">Vielen Dank</h3>
+      <div class="ismall" id="p_r_thanks"></div>
+      <div class="pageno"></div>
     </div>
+
+    <!-- ---------- QR-Beilage ---------- -->
+    <div class="sheet qr off" id="pgQr"><img id="p_qr_img" alt="QR-Rechnung"></div>
 
   </div>
 </div>
 
 <script>
-/* ===================== Defaults (Oev Global / Smash Burger Bear example) ===================== */
+/* =================================================================
+   Festes Firmenlogo – als Data-URL im Dokument eingebettet.
+   Es kann im UI weder ersetzt noch entfernt werden und ist damit
+   auf jeder Offerte und jeder Rechnung garantiert vorhanden.
+   ================================================================= */
+const LOGO = "data:image/png;base64,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";
+
+/* ===================== Defaults ===================== */
 const DEFAULTS = {
-  nr:"026370", betreff:"Lieferung", datum:"2026-06-23", gueltig:"31.06.2026",
-  mwst:"8.1", waehrung:"CHF", lieferung:"gem. Abspr.",
-  v_firma:"Oev Global Enterprises", v_handel:"Maloev",
+  doctype:"beides",
+  betreff:"Lieferung", waehrung:"CHF",
+  onr:"026372", odatum:"", gueltig:"", lieferung:"gem. Abspr.",
+  rnr:"", rdatum:"", ldatum:"", frist:"30", referenz:"", mwst:"8.1",
+  v_firma:"Oev Global Enterprises", v_handel:"Maloev", v_inhaber:"Inh. Y. Övünc",
   v_strasse:"Barblanstrasse 14", v_ort:"7000 Chur", v_mwst:"CHE-253.800.997",
   v_kontakt:"Yusuf Övünç", v_gf:"Yusuf Övünç",
   v_mail:"yusufoevuenc2004@gmail.com", v_tel:"+41 78 230 30 08",
   v_bank:"Graubündner Kantonalbank", v_iban:"CH06 0077 4010 4891 1310 0",
-  k_firma:"The Smash Burger Bear GmbH", k_strasse:"Wallisellenstrasse 23",
-  k_ort:"8600 Dübendorf", k_mwst:"CHE-161.271.681",
-  k_anrede:"Sehr geehrter Herr Durguti", k_sign:"Harbin Durguti (The Smash Burger Bear GmbH)",
+  k_firma:"", k_strasse:"", k_ort:"", k_mwst:"", k_anrede:"", k_sign:"",
+  rab_label:"Mengenrabatt", rab_wert:"", rab_typ:"chf",
+  akonto:"", akonto_datum:"", runden:true,
   p_pct:"50", p_frist1:"5 Werktagen", p_frist2:"30 Tagen",
   p_kondzeile:"50 % 5 Tage nach Vertragsabschluss / 50 % nach Lieferung.",
-  items:[
-    {artikel:"Standard", bez:"Burger-Box Standard", anzahl:"10'000", preis:"0.28", override:""},
-    {artikel:"Standard", bez:"Burgerpapier Rabatt", anzahl:"", preis:"", override:"-150"}
-  ]
+  info:"", info_auto:true, gueltig_auto:true, referenz_auto:true,
+  zahlung:"Bitte begleichen Sie den fälligen Betrag mittels **QR-Rechnung** innerhalb von **{frist} Tagen**",
+  dank:"Wir bedanken uns herzlich für Ihren Auftrag und das entgegengebrachte Vertrauen.\nBei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung.",
+  items:[{artikel:"", bez:"", anzahl:"", preis:"", override:""}],
+  qr:null, qrName:""
 };
 
-const SIMPLE_IDS = ["nr","betreff","datum","gueltig","mwst","waehrung","lieferung",
-  "v_firma","v_handel","v_strasse","v_ort","v_mwst","v_kontakt","v_gf","v_mail","v_tel",
-  "v_bank","v_iban","k_firma","k_strasse","k_ort","k_mwst","k_anrede","k_sign",
-  "p_pct","p_frist1","p_frist2","p_kondzeile"];
-const STORE_KEY = "offerte_state_v1";
-let logoDataUrl = null;
+const EXAMPLE = Object.assign({}, DEFAULTS, {
+  onr:"026372", rnr:"RE-2026-02", odatum:"2026-08-05", rdatum:"2026-08-05", ldatum:"2026-08-05",
+  k_firma:"Nordex 2 GmbH", k_strasse:"Lindenquai 4", k_ort:"7000 Chur",
+  k_anrede:"Sehr geehrte Damen und Herren", k_sign:"Nordex 2 GmbH",
+  rab_label:"Mengenrabatt", rab_wert:"100", rab_typ:"chf",
+  akonto:"1500", akonto_datum:"2026-06-29",
+  items:[
+    {artikel:"27 x 16 x 29 cm", bez:"Tüte, weiss auf Schwarz bedruckt", anzahl:"8300", preis:"0.28", override:""},
+    {artikel:"25 x 14 x 25 cm", bez:"Tüte, schwarz auf weiss bedruckt", anzahl:"3000", preis:"0.25", override:""},
+    {artikel:"", bez:"Onboarding 1. Lieferung", anzahl:"1", preis:"65.21", override:""}
+  ]
+});
 
-/* ===================== Formatting helpers ===================== */
-// Swiss thousands with apostrophe, dot decimals.
-function fmtNum(v, decimals){
+/* Text-/Zahlenfelder, die 1:1 aus dem Formular gelesen werden */
+const TEXT_IDS = ["doctype","betreff","waehrung","onr","odatum","gueltig","lieferung",
+  "rnr","rdatum","ldatum","frist","referenz","mwst",
+  "v_firma","v_handel","v_inhaber","v_strasse","v_ort","v_mwst","v_kontakt","v_gf",
+  "v_mail","v_tel","v_bank","v_iban",
+  "k_firma","k_strasse","k_ort","k_mwst","k_anrede","k_sign",
+  "rab_label","rab_wert","rab_typ","akonto","akonto_datum",
+  "p_pct","p_frist1","p_frist2","p_kondzeile","info","zahlung","dank"];
+const CHECK_IDS = ["runden","info_auto","gueltig_auto","referenz_auto"];
+
+const K_STATE = "maloev_state_v2";
+const K_CUST  = "maloev_customers_v1";
+const K_ARC   = "maloev_archive_v1";
+const K_CNT   = "maloev_counters_v1";
+
+let qrData = null;      // Data-URL der QR-Beilage
+let qrName = "";        // Dateiname zur Anzeige
+
+/* ===================== Kleine Helfer ===================== */
+const $ = id => document.getElementById(id);
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+/* **fett** -> <b>, Zeilenumbrüche -> <br> */
+function rich(s){return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\n/g,"<br>");}
+function lsGet(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v;}catch(e){return fb;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+
+/* ---------- Zahlen (Schweizer Schreibweise) ---------- */
+function round2(v){return Math.round((v+Number.EPSILON)*100)/100;}
+function fmtNum(v,decimals){
   if(v===null||v===undefined||isNaN(v)) return "";
-  const neg = v<0; v=Math.abs(v);
-  let s = (decimals!=null) ? v.toFixed(decimals) : String(v);
-  let [int,frac] = s.split(".");
-  int = int.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
-  let out = frac!=null ? int+"."+frac : int;
-  return (neg?"-":"")+out;
+  const neg=v<0; v=Math.abs(v);
+  let s=(decimals!=null)?v.toFixed(decimals):String(v);
+  let [int,frac]=s.split(".");
+  int=int.replace(/\B(?=(\d{3})+(?!\d))/g,"'");
+  return (neg?"-":"")+(frac!=null?int+"."+frac:int);
 }
-// Currency in the example style: trailing ".-"; perUnit appends " / kg" etc.
-function fmtCHF(v, {trailing=true, decimals=2, perUnit=null}={}){
+/* Ganze Beträge als "2324.-", sonst "65.21" – wie in der Vorlage. */
+function fmtCHF(v){
   if(v===null||v===undefined||isNaN(v)) return "";
-  let s = fmtNum(v, decimals);
-  // example shows e.g. 800.-  /  0.28.-  /  1'432.35.-
-  if(trailing) s += ".-";
-  if(perUnit) s += " / "+perUnit;
-  return s;
+  const r=round2(v);
+  return Number.isInteger(r) ? fmtNum(r,0)+".-" : fmtNum(r,2);
 }
-// parse leading number out of an "Anzahl" like "250 kg" or "10'000"
+function fmtSigned(v,sign){
+  const s=fmtCHF(Math.abs(v));
+  return (sign||(v<0?"-":"+"))+" "+s;
+}
 function parseAnzahl(str){
-  if(str==null) return {num:null, unit:""};
-  const cleaned = String(str).replace(/['’]/g,"").trim();
-  const m = cleaned.match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);
-  if(!m) return {num:null, unit:String(str).trim()};
-  return {num:parseFloat(m[1]), unit:m[2].trim()};
+  if(str==null) return {num:null,unit:""};
+  const cleaned=String(str).replace(/['’´]/g,"").trim();
+  const m=cleaned.match(/^(-?\d+(?:[.,]\d+)?)\s*(.*)$/);
+  if(!m) return {num:null,unit:String(str).trim()};
+  return {num:parseFloat(m[1].replace(",",".")),unit:m[2].trim()};
 }
-function parsePrice(str){
+function parseNum(str){
   if(str==null||str==="") return null;
-  const c = String(str).replace(/['’]/g,"").replace(/[^0-9.\-]/g,"");
-  const n = parseFloat(c); return isNaN(n)?null:n;
+  const c=String(str).replace(/['’´]/g,"").replace(/,/g,".").replace(/[^0-9.\-]/g,"");
+  const n=parseFloat(c); return isNaN(n)?null:n;
 }
+/* Rappenrundung auf 0.05 */
+function round05(v){return Math.round(v*20)/20;}
+
+/* ---------- Datum ---------- */
 function ddmmyyyy(iso){
   if(!iso) return "";
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(!m) return iso; // already a display string
-  return `${m[3]}.${m[2]}.${m[1]}`;
+  const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : String(iso);
+}
+function todayISO(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+/* +n Monate, Monatsende wird korrekt gekappt (31.01. + 1 Monat = 28./29.02.) */
+function addMonths(iso,n){
+  const m=String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return "";
+  const y=+m[1], mo=+m[2]-1, d=+m[3];
+  const target=new Date(Date.UTC(y,mo+n,1));
+  const lastDay=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth()+1,0)).getUTCDate();
+  target.setUTCDate(Math.min(d,lastDay));
+  return target.toISOString().slice(0,10);
+}
+function addDays(iso,n){
+  const m=String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m||isNaN(n)) return "";
+  const d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));
+  d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
 }
 
-/* ===================== State I/O ===================== */
+/* ---------- IBAN-Prüfung (Modulo 97) ---------- */
+function ibanValid(raw){
+  const s=String(raw||"").replace(/\s+/g,"").toUpperCase();
+  if(!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(s)) return false;
+  const re=s.slice(4)+s.slice(0,4);
+  let rest=0;
+  for(const ch of re){
+    const v=/\d/.test(ch)?ch:String(ch.charCodeAt(0)-55);
+    for(const digit of v) rest=(rest*10+ +digit)%97;
+  }
+  return rest===1;
+}
+
+/* ===================== State ===================== */
 function readState(){
-  const s = {items:[]};
-  SIMPLE_IDS.forEach(id=> s[id]=document.getElementById(id).value);
+  const s={items:[]};
+  TEXT_IDS.forEach(id=>{const el=$("f_"+id); if(el) s[id]=el.value;});
+  CHECK_IDS.forEach(id=>{const el=$("f_"+id); if(el) s[id]=el.checked;});
   document.querySelectorAll("#itemBody .itemrow").forEach(tr=>{
     s.items.push({
-      artikel: tr.querySelector(".f-artikel").value,
-      bez:     tr.querySelector(".f-bez").value,
-      anzahl:  tr.querySelector(".f-anzahl").value,
-      preis:   tr.querySelector(".f-preis").value,
+      artikel:tr.querySelector(".f-artikel").value,
+      bez:tr.querySelector(".f-bez").value,
+      anzahl:tr.querySelector(".f-anzahl").value,
+      preis:tr.querySelector(".f-preis").value,
       override:tr.querySelector(".f-override").value
     });
   });
-  s.logo = logoDataUrl;
+  s.qr=qrData; s.qrName=qrName;
   return s;
 }
 function applyState(s){
-  SIMPLE_IDS.forEach(id=>{ if(s[id]!=null) document.getElementById(id).value=s[id]; });
-  document.getElementById("itemBody").innerHTML="";
-  (s.items||[]).forEach(addItemRow);
-  if(!s.items || !s.items.length) addItemRow({});
-  if(s.logo){ logoDataUrl=s.logo; setLogo(s.logo); }
+  TEXT_IDS.forEach(id=>{const el=$("f_"+id); if(el&&s[id]!=null) el.value=s[id];});
+  CHECK_IDS.forEach(id=>{const el=$("f_"+id); if(el&&s[id]!=null) el.checked=!!s[id];});
+  setType(s.doctype||"beides",true);
+  $("itemBody").innerHTML="";
+  (s.items&&s.items.length?s.items:[{}]).forEach(addItemRow);
+  qrData=s.qr||null; qrName=s.qrName||"";
+  renderQrStatus();
 }
-function setLogo(url){ logoImg1.src=url; logoImg2.src=url; }
 
-/* ===================== Item rows ===================== */
-function addItemRow(data={}){
+/* ===================== Dokumenttyp ===================== */
+function setType(v,silent){
+  $("f_doctype").value=v;
+  document.querySelectorAll("#segType button").forEach(b=>b.classList.toggle("active",b.dataset.v===v));
+  if(!silent) render();
+}
+
+/* ===================== Positionszeilen ===================== */
+function addItemRow(data){
+  data=data||{};
   const tr=document.createElement("tr"); tr.className="itemrow";
   tr.innerHTML=`
-    <td data-lbl="Artikel"><input class="f-artikel" value="${esc(data.artikel||'')}"></td>
+    <td data-lbl="Artikel / Mass"><input class="f-artikel" value="${esc(data.artikel||'')}"></td>
     <td data-lbl="Bezeichnung"><input class="f-bez" value="${esc(data.bez||'')}"></td>
     <td data-lbl="Anzahl"><input class="f-anzahl" value="${esc(data.anzahl||'')}"></td>
     <td data-lbl="Preis/St"><input class="f-preis" value="${esc(data.preis||'')}"></td>
     <td data-lbl="Total überschreiben"><input class="f-override" value="${esc(data.override||'')}"></td>
-    <td class="ctl"><button class="btn danger tiny" type="button">✕ entfernen</button></td>`;
+    <td class="ctl"><button class="btn danger tiny" type="button">✕</button></td>`;
   tr.querySelector("button").onclick=()=>{tr.remove();render();};
   tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",render));
-  document.getElementById("itemBody").appendChild(tr);
+  $("itemBody").appendChild(tr);
 }
-function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
-/* ===================== Compute + Render ===================== */
-function computeRows(state){
-  // returns {rows:[{...}], subtotal}
-  let subtotal=0; const rows=[];
-  state.items.forEach((it,i)=>{
-    const {num:anz} = parseAnzahl(it.anzahl);
-    const price = parsePrice(it.preis);
-    const ov = it.override!=="" ? parsePrice(it.override) : null;
+/* ===================== Berechnung ===================== */
+function compute(s){
+  const rows=[]; let netto=0;
+  s.items.forEach((it,i)=>{
+    const {num:anz}=parseAnzahl(it.anzahl);
+    const price=parseNum(it.preis);
+    const ov=it.override!==""?parseNum(it.override):null;
     let total=null;
     if(ov!=null) total=ov;
-    else if(anz!=null && price!=null) total = anz*price;
-    if(total!=null) subtotal += total;
-    rows.push({pos:i+1, artikel:it.artikel, bez:it.bez, anzahl:it.anzahl,
-               price, total, isDiscount: total!=null && total<0});
+    else if(anz!=null&&price!=null) total=anz*price;
+    if(total!=null) netto+=total;
+    rows.push({pos:i+1,artikel:it.artikel,bez:it.bez,anzahl:it.anzahl,price,total});
   });
-  return {rows, subtotal};
+  netto=round2(netto);
+
+  const rabRaw=parseNum(s.rab_wert)||0;
+  const rabatt=round2(s.rab_typ==="pct" ? netto*rabRaw/100 : rabRaw);
+  const nettoNachRabatt=round2(netto-rabatt);
+  const rate=parseFloat(s.mwst)||0;
+  const mwstBetrag=round2(nettoNachRabatt*rate/100);
+  const brutto=round2(nettoNachRabatt+mwstBetrag);
+  const akonto=round2(parseNum(s.akonto)||0);
+  let offen=round2(brutto-akonto);
+  if(s.runden) offen=round05(offen);
+
+  return {rows,netto,rabatt,nettoNachRabatt,rate,mwstBetrag,brutto,akonto,offen};
 }
 
+/* ===================== Automatische Felder ===================== */
+function syncAuto(){
+  const gAuto=$("f_gueltig_auto").checked, od=$("f_odatum").value;
+  $("f_gueltig").disabled=gAuto;
+  if(gAuto&&od) $("f_gueltig").value=addMonths(od,1);
+
+  const rAuto=$("f_referenz_auto").checked, onr=$("f_onr").value.trim();
+  $("f_referenz").disabled=rAuto;
+  if(rAuto) $("f_referenz").value = onr ? "Offerte Nr. "+onr : "";
+
+  /* Leistungsdatum: solange leer, dem Rechnungsdatum folgen */
+  if(!$("f_ldatum").value && $("f_rdatum").value) $("f_ldatum").value=$("f_rdatum").value;
+
+  $("f_info").disabled=$("f_info_auto").checked;
+}
+
+function autoInfoLines(s,c,qrPage){
+  const cur=s.waehrung||"CHF";
+  const kunde=s.k_firma||"der Kunde";
+  const firma=s.v_handel||s.v_firma||"";
+  const out=[];
+  if(c.akonto>0){
+    out.push(`Am ${ddmmyyyy(s.akonto_datum)||"…"} wurde eine Akontozahlung in Höhe von `+
+      `${fmtCHF(c.akonto)} ${cur} seitens ${kunde} geleistet.`);
+  }
+  if(c.rabatt>0){
+    out.push(`${firma} gewährt ${kunde} einen nachträglichen ${s.rab_label||"Rabatt"} in Höhe von `+
+      `${fmtCHF(c.rabatt)} ${cur}.`);
+  }
+  const frist=parseInt(s.frist,10);
+  const wo = qrPage ? `mittels QR Code auf Seite ${qrPage}` : "mittels QR-Rechnung";
+  out.push(`Der offene Betrag in Höhe von ${cur} ${fmtCHF(c.offen)} gilt innert `+
+    `${isNaN(frist)?"…":frist} Tagen an ${firma} ${wo} zu begleichen.`);
+  return out;
+}
+
+function fillPlaceholders(txt,s,c,qrPage){
+  const cur=s.waehrung||"CHF";
+  return String(txt||"")
+    .replace(/\{frist\}/g,s.frist||"")
+    .replace(/\{total\}/g,cur+" "+fmtCHF(c.offen))
+    .replace(/\{kunde\}/g,s.k_firma||"")
+    .replace(/\{firma\}/g,s.v_handel||s.v_firma||"")
+    .replace(/\{rechnungsnr\}/g,s.rnr||"")
+    .replace(/\{qrseite\}/g,qrPage||"");
+}
+
+/* ===================== Render ===================== */
 function render(){
-  const s = readState();
-  const cur = s.waehrung || "CHF";
+  syncAuto();
+  const s=readState();
+  const c=compute(s);
+  const cur=s.waehrung||"CHF";
   document.querySelectorAll(".cur").forEach(e=>e.textContent=cur);
+  document.querySelectorAll("img.autologo").forEach(img=>{ if(img.src!==LOGO) img.src=LOGO; });
 
-  // ---- Page 1 header ----
-  o_sender.textContent = `${s.v_firma} · ${s.v_strasse} · ${s.v_ort}`;
-  o_addr.innerHTML = `<div class="firma">${esc(s.k_firma)}</div>${esc(s.k_strasse)}<br>${esc(s.k_ort)}`;
-  o_nr.textContent=s.nr; o_datum.textContent=ddmmyyyy(s.datum);
-  o_kontakt.textContent=s.v_kontakt; o_mail.textContent=s.v_mail; o_tel.textContent=s.v_tel;
-  o_heading.textContent=`Offerte: ${s.betreff||""}`;
-  o_anrede.textContent=s.k_anrede;
-  o_gueltig.textContent=ddmmyyyy(s.gueltig);
-  o_gf.textContent=s.v_gf; o_sign.textContent=s.k_sign;
-  o_kond.textContent=s.p_kondzeile;
-  o_pagefoot.innerHTML=`${esc(s.v_firma)}<br>${esc(s.v_strasse)} | ${esc(s.v_mail)} | ${esc(s.v_tel)}`;
+  const type=s.doctype||"beides";
+  const showQuote=(type==="offerte"||type==="beides");
+  const showInv  =(type==="rechnung"||type==="beides");
+  const showQr   =showInv&&!!qrData;
 
-  // ---- compute ----
-  const {rows, subtotal} = computeRows(s);
-  const rate = parseFloat(s.mwst)||0;
-  const mwstAmt = subtotal*rate/100;
-  const gross = subtotal+mwstAmt;
+  $("pgQuote").classList.toggle("off",!showQuote);
+  $("pgInv1").classList.toggle("off",!showInv);
+  $("pgInv2").classList.toggle("off",!showInv);
+  $("pgQr").classList.toggle("off",!showQr);
 
-  // ---- Page 1 item rows ----
-  o_rows.innerHTML = rows.map(r=>`
-    <tr>
-      <td class="c">${r.pos}</td>
-      <td>${esc(r.artikel||"")}</td>
-      <td>${esc(r.bez||"")}</td>
-      <td class="num">${esc(r.anzahl||"")}</td>
-      <td class="num">${r.price!=null?fmtCHF(r.price,{decimals:2}):""}</td>
-      <td class="num">${r.total!=null?(r.isDiscount?"- "+fmtCHF(Math.abs(r.total),{decimals:2}):fmtCHF(r.total,{decimals:2})):""}</td>
-    </tr>`).join("");
+  /* --- Hinweise im Formular --- */
+  const faellig=addDays(s.rdatum,parseInt(s.frist,10));
+  $("c_faellig").textContent = faellig ? "Fälligkeitsdatum: "+ddmmyyyy(faellig) : "";
+  const ibanEl=$("c_iban");
+  if(!s.v_iban.trim()){ ibanEl.textContent=""; }
+  else if(ibanValid(s.v_iban)){ ibanEl.textContent="IBAN gültig ✓"; ibanEl.style.color="#2a7"; }
+  else { ibanEl.textContent="IBAN-Prüfziffer stimmt nicht"; ibanEl.style.color="#a33"; }
 
-  o_foot.innerHTML = `
-    <tr class="tot"><td colspan="3" class="lbl"><b>Total</b> <span style="font-weight:normal;font-size:8.5pt">(exkl. MWST ${fmtNum(rate,1)}%)</span></td>
-        <td></td><td></td><td class="num"><b>${fmtCHF(subtotal,{decimals:2})}</b></td></tr>
-    <tr class="tot"><td colspan="3" class="lbl"><b>Total</b> <span style="font-weight:normal;font-size:8.5pt">(inkl. MWST ${fmtNum(rate,1)}%)</span></td>
-        <td></td><td></td><td class="num"><b>${fmtCHF(gross,{decimals:2})}</b></td></tr>`;
+  /* ================= Offerte ================= */
+  if(showQuote){
+    $("p_o_sender").textContent=`${s.v_firma} · ${s.v_strasse} · ${s.v_ort}`;
+    $("p_o_addr").innerHTML=`<div class="firma">${esc(s.k_firma)}</div>${esc(s.k_strasse)}<br>${esc(s.k_ort)}`;
+    $("p_o_nr").textContent=s.onr;
+    $("p_o_datum").textContent=ddmmyyyy(s.odatum);
+    $("p_o_kontakt").textContent=s.v_kontakt;
+    $("p_o_mail").textContent=s.v_mail;
+    $("p_o_tel").textContent=s.v_tel;
+    $("p_o_heading").textContent="Offerte"+(s.betreff?": "+s.betreff:"");
+    $("p_o_anrede").textContent=s.k_anrede;
+    $("p_o_gueltig").textContent=ddmmyyyy(s.gueltig);
+    $("p_o_gf").textContent=s.v_gf;
+    $("p_o_sign").textContent=s.k_sign;
+    $("p_o_kond").textContent=s.p_kondzeile;
+    $("p_o_pagefoot").innerHTML=`${esc(s.v_firma)}<br>${esc(s.v_strasse)} | ${esc(s.v_mail)} | ${esc(s.v_tel)}`;
 
-  // ---- Page 2 ----
-  r_nr.textContent=s.nr; r_lief.textContent=s.lieferung; r_datum.textContent=ddmmyyyy(s.datum);
-  r_addr.innerHTML=`<div class="firma" style="font-weight:bold">${esc(s.k_firma)}</div>${esc(s.k_strasse)}<br>${esc(s.k_ort)}<br>MWST-Nr.: ${esc(s.k_mwst)}`;
-  r_rows.innerHTML = rows.map(r=>`
-    <tr>
-      <td class="c">${String(r.pos).padStart(3,"0")}</td>
-      <td>${esc(r.artikel||"")}</td>
-      <td>${esc(r.bez||"")}</td>
-      <td class="num">${r.price!=null?fmtCHF(r.price,{decimals:2}):""}</td>
-      <td class="num">${esc(r.anzahl||"")}</td>
-      <td class="num">${r.total!=null?(r.isDiscount?"- "+fmtCHF(Math.abs(r.total),{decimals:2}):fmtCHF(r.total,{decimals:2})):""}</td>
-    </tr>`).join("");
-  // Gesamtsumme shown WITHOUT trailing ".-" to match the example (2'864.65)
-  r_gross.textContent = fmtNum(gross,2);
+    $("p_o_rows").innerHTML=c.rows.map(r=>`
+      <tr>
+        <td class="c">${r.pos}</td>
+        <td>${esc(r.artikel)}</td>
+        <td>${esc(r.bez)}</td>
+        <td class="num">${esc(r.anzahl)}</td>
+        <td class="num">${r.price!=null?fmtCHF(r.price):""}</td>
+        <td class="num">${r.total!=null?fmtCHF(r.total):""}</td>
+      </tr>`).join("");
 
-  // ---- payment split on gross ----
-  const pct = parseFloat(s.p_pct)||0;
-  // First share rounded to nearest 5 Rappen (0.05), Swiss style; remainder goes to share B
-  // so the two halves still sum exactly to the gross total (matches the example: 1'432.35 + 1'432.30).
-  const shareA = Math.round(gross*pct/100*20)/20;
-  const shareB = Math.round((gross-shareA)*100)/100;
-  const cA = `${cur} ${fmtCHF(shareA,{decimals:2})}`;
-  const cB = `${cur} ${fmtCHF(shareB,{decimals:2})}`;
-  r_note1.innerHTML = `*Ab Unterschrift der Offerte sind ${fmtNum(pct,0)}% des Betrags (${cA}) innerhalb von ${esc(s.p_frist1)} fällig.`;
-  r_note2.innerHTML = `Nach der Lieferung sind ${fmtNum(100-pct,0)}% des Betrags (${cB}) innerhalb von ${esc(s.p_frist2)} fällig.`;
+    const rabRow = c.rabatt ? `
+      <tr class="tot"><td colspan="3" class="lbl">${esc(s.rab_label||"Rabatt")}</td>
+          <td></td><td></td><td class="num">- ${fmtCHF(c.rabatt)}</td></tr>` : "";
+    $("p_o_foot").innerHTML=rabRow+`
+      <tr class="tot"><td colspan="3" class="lbl"><b>Total</b>
+          <span style="font-weight:normal;font-size:8.5pt">(exkl. MWST ${fmtNum(c.rate,1)}%)</span></td>
+          <td></td><td></td><td class="num"><b>${fmtCHF(c.nettoNachRabatt)}</b></td></tr>
+      <tr class="tot"><td colspan="3" class="lbl"><b>Total</b>
+          <span style="font-weight:normal;font-size:8.5pt">(inkl. MWST ${fmtNum(c.rate,1)}%)</span></td>
+          <td></td><td></td><td class="num"><b>${fmtCHF(c.brutto)}</b></td></tr>`;
+  }
 
-  r_handel.textContent=s.v_handel;
-  r_vadr.textContent=`${s.v_strasse}, ${s.v_ort}`;
-  r_vmwst.textContent=`MWST-Nr.: ${s.v_mwst}`;
-  r_vgf.textContent=s.v_gf;
-  r_bank.textContent=s.v_bank;
-  r_iban.textContent=`Kontonummer: ${s.v_iban}`;
-  r_pagefoot.innerHTML=`${esc(s.v_firma)}<br>${esc(s.v_strasse)} | ${esc(s.v_mail)} | ${esc(s.v_tel)}`;
+  /* ================= Rechnung ================= */
+  if(showInv){
+    const gap='<div class="gap"></div>';
+    $("p_r_sender").innerHTML=
+      `<div class="b">${esc(s.v_handel||s.v_firma)}</div>`+
+      (s.v_inhaber?`<div>${esc(s.v_inhaber)}</div>`:"")+
+      `<div>${esc(s.v_strasse)}</div><div>${esc(s.v_ort)}</div>`+gap+
+      `<div>Tel: ${esc(s.v_tel)}</div><div>E-Mail: ${esc(s.v_mail)}</div>`+
+      `<div>UID: ${esc(s.v_mwst)}</div>`;
+    $("p_r_recv").innerHTML=
+      `<div>${esc(s.k_firma)}</div><div>${esc(s.k_strasse)}</div><div>${esc(s.k_ort)}</div>`+
+      (s.k_mwst?`<div>MWST-Nr.: ${esc(s.k_mwst)}</div>`:"");
 
-  // autosave
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(readState())); }catch(e){}
+    const meta=[
+      ["Rechnungsnummer",s.rnr],
+      ["Rechnungsdatum",ddmmyyyy(s.rdatum)],
+      ["Referenz",s.referenz],
+      ["Zahlungsfrist",s.frist?`${s.frist} Tage`:""],
+      ["Leistungsdatum",ddmmyyyy(s.ldatum)],
+      ["Fällig bis",ddmmyyyy(faellig)]
+    ].filter(r=>String(r[1]||"").trim()!=="");
+    $("p_r_meta").innerHTML=meta.map(r=>
+      `<tr><td class="k">${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("");
+
+    /* ---- Detailtabelle nach Vorlage: durchlaufende Nummerierung ---- */
+    let n=0;
+    const cells=(a,b,cc,d,e,f,cls)=>`<tr class="${cls||''}">`+
+      `<td>${a}</td><td>${b}</td><td class="lbl">${cc}</td><td>${d}</td>`+
+      `<td class="price">${e}</td><td class="val">${f}</td></tr>`;
+    let html="";
+    c.rows.forEach(r=>{
+      n++;
+      html+=cells(n,esc(r.artikel),esc(r.bez),esc(r.anzahl),
+        r.price!=null?fmtNum(r.price,2):"", r.total!=null?fmtCHF(r.total):"");
+    });
+    html+=`<tr class="spacer"><td></td><td></td><td></td><td></td><td></td><td>---------------</td></tr>`;
+    n++; html+=cells(n,"","Zwischentotal exkl. MWST","","",fmtCHF(c.netto),"sub");
+    if(c.rabatt){
+      n++; html+=cells(n,"",esc(s.rab_label||"Rabatt"),"","",fmtSigned(-c.rabatt,"-"),"sub");
+      n++; html+=cells(n,"","Zwischentotal exkl. MWST","","",fmtCHF(c.nettoNachRabatt),"sub");
+    }
+    html+=`<tr class="spacer"><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    n++; html+=cells(n,"",`MWST ${fmtNum(c.rate,1)}%`,"","",fmtSigned(c.mwstBetrag,"+"),"sub");
+    n++; html+=cells(n,"","Zwischentotal inkl. MWST","","",fmtCHF(c.brutto),"sub");
+    if(c.akonto){
+      html+=`<tr class="spacer"><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+      n++; html+=cells(n,"",
+        `Akontozahlung${s.akonto_datum?` (am ${ddmmyyyy(s.akonto_datum)} bezahlt)`:""}`,
+        "","",fmtSigned(-c.akonto,"-"),"sub");
+    }
+    n++; html+=cells(n,"","<b>Total Offener Betrag</b>","","",
+      `${fmtCHF(c.offen)} ${esc(cur)}`,"grand");
+    $("p_r_rows").innerHTML=html;
+
+    /* ---- Info / Zahlung / Dank ---- */
+    const pages=[showQuote,true,true,showQr].filter(Boolean).length;
+    const qrPage=showQr?pages:null;
+    if(s.info_auto){
+      const lines=autoInfoLines(s,c,qrPage);
+      $("f_info").value=lines.join("\n");
+      s.info=lines.join("\n");
+    }
+    $("p_r_info").innerHTML=String(s.info||"").split("\n").filter(l=>l.trim())
+      .map(l=>`<li>${rich(fillPlaceholders(l,s,c,qrPage))}</li>`).join("");
+    $("p_r_pay").innerHTML=rich(fillPlaceholders(s.zahlung,s,c,qrPage));
+    $("p_r_thanks").innerHTML=rich(fillPlaceholders(s.dank,s,c,qrPage))+
+      `<span class="sp"></span>Freundliche Grüsse<span class="sp"></span>`+
+      `<b>${esc(s.v_handel||s.v_firma)}</b>`+(s.v_inhaber?`<br>${esc(s.v_inhaber)}`:"");
+  }
+
+  /* ================= QR-Beilage ================= */
+  if(showQr){
+    const img=$("p_qr_img");
+    if(img.getAttribute("src")!==qrData) img.src=qrData;
+    /* Schmale Streifen (nur Zahlteil) unten platzieren, ganze Seiten oben */
+    img.onload=()=>{
+      const ratio=img.naturalHeight/img.naturalWidth;
+      $("pgQr").classList.toggle("bottom",ratio<0.75);
+      $("pgQr").querySelector("img").style.width="210mm";
+    };
+  }
+
+  numberPages();
+  saveState();
 }
 
-/* ===================== Wiring ===================== */
-SIMPLE_IDS.forEach(id=>document.getElementById(id).addEventListener("input",render));
-document.getElementById("addRow").onclick=()=>{addItemRow({});render();};
-document.getElementById("loadExample").onclick=()=>{applyState(structuredClone(DEFAULTS));render();};
-document.getElementById("reset").onclick=()=>{
-  try{localStorage.removeItem(STORE_KEY);}catch(e){}
-  logoDataUrl=null; setLogo("oev_logo.png");
-  applyState(structuredClone(DEFAULTS)); render();
-};
-document.getElementById("logoFile").onchange=e=>{
+function numberPages(){
+  const sheets=[...document.querySelectorAll(".sheet:not(.off)")];
+  sheets.forEach((sh,i)=>{
+    const el=sh.querySelector(".pageno");
+    if(el) el.textContent = sheets.length>1 ? `Seite ${i+1} von ${sheets.length}` : "";
+  });
+}
+
+function saveState(){
+  if(!lsSet(K_STATE,readState())){
+    $("qrStatus").innerHTML='<span style="color:#a33">Speicher voll – die QR-Beilage konnte nicht '+
+      'dauerhaft gesichert werden (Dokument funktioniert trotzdem).</span>';
+  }
+}
+
+/* ===================== QR-Beilage ===================== */
+/* Dynamische ES-Module lassen sich unter file:// nicht laden – dort ist nur
+   der Bild-Upload möglich. Das wird vorab angezeigt statt erst beim Fehler. */
+const PDF_UPLOAD_MOEGLICH = location.protocol!=="file:";
+function renderQrStatus(){
+  const el=$("qrStatus");
+  el.className="hint";
+  if(qrData){ el.textContent=`Hinterlegt: ${qrName||"QR-Rechnung"} – wird als letzte Seite gedruckt.`; return; }
+  el.textContent = PDF_UPLOAD_MOEGLICH
+    ? "Keine QR-Rechnung hinterlegt."
+    : "Keine QR-Rechnung hinterlegt. Hinweis: Die Datei ist direkt vom Dateisystem geöffnet – "+
+      "hier funktioniert nur der Bild-Upload. Für PDF-Upload die Online-Version öffnen.";
+}
+let pdfjs=null;
+async function loadPdfJs(){
+  if(pdfjs) return pdfjs;
+  const mod=await import("./vendor/pdf.min.mjs");
+  mod.GlobalWorkerOptions.workerSrc="./vendor/pdf.worker.min.mjs";
+  pdfjs=mod; return mod;
+}
+async function pdfPageToDataUrl(file){
+  const lib=await loadPdfJs();
+  const buf=await file.arrayBuffer();
+  const doc=await lib.getDocument({data:buf}).promise;
+  const page=await doc.getPage(1);
+  const base=page.getViewport({scale:1});
+  const vp=page.getViewport({scale:1240/base.width});
+  const cv=document.createElement("canvas");
+  cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+  const ctx=cv.getContext("2d");
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height);
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+  return cv.toDataURL("image/png");
+}
+$("f_qrfile").onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
-  const rd=new FileReader(); rd.onload=()=>{logoDataUrl=rd.result; setLogo(rd.result); render();}; rd.readAsDataURL(f);
+  const st=$("qrStatus");
+  st.className="hint"; st.textContent="Wird verarbeitet …";
+  try{
+    if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){
+      qrData=await pdfPageToDataUrl(f);
+    }else{
+      qrData=await new Promise((res,rej)=>{
+        const rd=new FileReader(); rd.onload=()=>res(rd.result); rd.onerror=rej; rd.readAsDataURL(f);
+      });
+    }
+    qrName=f.name;
+    renderQrStatus(); render();
+  }catch(err){
+    qrData=null; qrName="";
+    st.className="hint warn";
+    st.textContent="PDF konnte nicht gelesen werden ("+(err&&err.message?err.message:err)+"). "+
+      "Beim Öffnen per file:// ist der PDF-Import blockiert – bitte die Seite über einen Webserver "+
+      "(z. B. GitHub Pages) öffnen oder den Zahlteil als Bild hochladen.";
+  }finally{
+    e.target.value="";
+  }
+};
+$("qrRemove").onclick=()=>{qrData=null;qrName="";renderQrStatus();render();};
+
+/* ===================== Nummernkreise ===================== */
+function counters(){return lsGet(K_CNT,{offerte:26372,rjahr:new Date().getFullYear(),rn:0});}
+function nextOfferNr(){
+  const c=counters(); c.offerte=(parseInt(c.offerte,10)||0)+1; lsSet(K_CNT,c);
+  return String(c.offerte).padStart(6,"0");
+}
+function nextInvoiceNr(){
+  const c=counters(); const y=new Date().getFullYear();
+  if(c.rjahr!==y){c.rjahr=y;c.rn=0;}
+  c.rn=(parseInt(c.rn,10)||0)+1; lsSet(K_CNT,c);
+  return `RE-${y}-${String(c.rn).padStart(2,"0")}`;
+}
+
+/* ===================== Kunden ===================== */
+const CUST_FIELDS=["k_firma","k_strasse","k_ort","k_mwst","k_anrede","k_sign"];
+function customers(){return lsGet(K_CUST,[]);}
+function refreshCustomers(){
+  const sel=$("custSel"), list=customers();
+  sel.innerHTML='<option value="">– auswählen –</option>'+
+    list.map((c,i)=>`<option value="${i}">${esc(c.k_firma||"(ohne Namen)")}</option>`).join("");
+}
+$("custSave").onclick=()=>{
+  const s=readState(); if(!s.k_firma.trim()){alert("Bitte zuerst die Firma des Kunden eintragen.");return;}
+  const list=customers();
+  const entry={}; CUST_FIELDS.forEach(f=>entry[f]=s[f]);
+  const i=list.findIndex(c=>c.k_firma===entry.k_firma);
+  if(i>=0) list[i]=entry; else list.push(entry);
+  lsSet(K_CUST,list); refreshCustomers();
+};
+$("custSel").onchange=e=>{
+  const c=customers()[e.target.value]; if(!c) return;
+  CUST_FIELDS.forEach(f=>{ if($("f_"+f)) $("f_"+f).value=c[f]||""; });
+  render();
+};
+$("custDel").onclick=()=>{
+  const i=$("custSel").value; if(i==="") return;
+  const list=customers();
+  if(!confirm(`Kunde „${list[i].k_firma}" wirklich löschen?`)) return;
+  list.splice(i,1); lsSet(K_CUST,list); refreshCustomers();
 };
 
-/* ===================== Mobile: tabs + fit-to-width scaling ===================== */
+/* ===================== Archiv ===================== */
+function archive(){return lsGet(K_ARC,[]);}
+function docLabel(s){
+  const typ=s.doctype==="offerte"?"Offerte":s.doctype==="rechnung"?"Rechnung":"Offerte+Rechnung";
+  const nr=s.doctype==="offerte"?s.onr:(s.rnr||s.onr);
+  const d=s.doctype==="offerte"?s.odatum:(s.rdatum||s.odatum);
+  return `${typ} ${nr||"–"} · ${s.k_firma||"ohne Kunde"} · ${ddmmyyyy(d)||"ohne Datum"}`;
+}
+function refreshArchive(){
+  const sel=$("arcSel"), list=archive();
+  sel.innerHTML='<option value="">– auswählen –</option>'+
+    list.map((e,i)=>`<option value="${i}">${esc(e.label)}</option>`).join("");
+}
+$("btnArchiveSave").onclick=()=>{
+  const s=readState(), list=archive();
+  const entry={id:Date.now(),label:docLabel(s),state:s};
+  const i=list.findIndex(e=>e.label===entry.label);
+  if(i>=0){ if(!confirm("Ein Dokument mit gleicher Nummer existiert bereits. Überschreiben?")) return;
+            list[i]=entry; }
+  else list.unshift(entry);
+  if(!lsSet(K_ARC,list)){alert("Speicher voll – bitte alte Dokumente aus dem Archiv löschen.");return;}
+  refreshArchive();
+  $("arcSel").value=String(i>=0?i:0);
+};
+$("arcLoad").onclick=()=>{
+  const e=archive()[$("arcSel").value]; if(!e) return;
+  applyState(e.state); render();
+};
+$("arcDup").onclick=()=>{
+  const e=archive()[$("arcSel").value]; if(!e) return;
+  const s=structuredClone(e.state);
+  s.odatum=todayISO(); s.rdatum=todayISO(); s.ldatum=todayISO();
+  if(s.doctype!=="rechnung") s.onr=nextOfferNr();
+  if(s.doctype!=="offerte")  s.rnr=nextInvoiceNr();
+  applyState(s); render();
+};
+$("arcDel").onclick=()=>{
+  const i=$("arcSel").value; if(i==="") return;
+  const list=archive();
+  if(!confirm(`„${list[i].label}" wirklich aus dem Archiv löschen?`)) return;
+  list.splice(i,1); lsSet(K_ARC,list); refreshArchive();
+};
+$("arcExport").onclick=()=>{
+  const data={version:2,exported:new Date().toISOString(),
+    archive:archive(),customers:customers(),counters:counters(),current:readState()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`maloev-backup-${todayISO()}.json`;
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+};
+$("arcImportBtn").onclick=()=>$("arcImportFile").click();
+$("arcImportFile").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const d=JSON.parse(rd.result);
+      if(d.archive) lsSet(K_ARC,d.archive);
+      if(d.customers) lsSet(K_CUST,d.customers);
+      if(d.counters) lsSet(K_CNT,d.counters);
+      refreshArchive(); refreshCustomers();
+      if(d.current){applyState(d.current);render();}
+      alert("Import abgeschlossen.");
+    }catch(err){alert("Datei konnte nicht gelesen werden: "+err.message);}
+  };
+  rd.readAsText(f); e.target.value="";
+};
+
+/* ===================== Drucken ===================== */
+function printFilename(){
+  const s=readState();
+  const kunde=(s.k_firma||"").replace(/[\\/:*?"<>|]/g,"").trim();
+  const typ=s.doctype;
+  let base;
+  if(typ==="rechnung") base=`Rechnung_${s.rnr||"ohne-Nr"}`;
+  else if(typ==="offerte") base=`Offerte_${s.onr||"ohne-Nr"}`;
+  else base=`Offerte-${s.onr||"?"}_Rechnung-${s.rnr||"?"}`;
+  return (base+(kunde?"_"+kunde:"")).replace(/\s+/g," ").trim();
+}
+let titleBackup=null;
+$("btnPrint").onclick=()=>{
+  titleBackup=document.title;
+  document.title=printFilename();
+  window.print();
+};
+window.addEventListener("afterprint",()=>{
+  if(titleBackup!=null){document.title=titleBackup;titleBackup=null;}
+});
+
+/* ===================== Buttons / Wiring ===================== */
+TEXT_IDS.forEach(id=>{const el=$("f_"+id); if(el) el.addEventListener("input",render);});
+CHECK_IDS.forEach(id=>{const el=$("f_"+id); if(el) el.addEventListener("change",render);});
+$("f_rab_typ").addEventListener("change",render);
+document.querySelectorAll("#segType button").forEach(b=>b.onclick=()=>setType(b.dataset.v));
+$("addRow").onclick=()=>{addItemRow({});render();};
+
+$("btnFromQuote").onclick=()=>{
+  if(!$("f_rnr").value.trim()) $("f_rnr").value=nextInvoiceNr();
+  $("f_rdatum").value=todayISO();
+  $("f_ldatum").value=todayISO();
+  $("f_referenz_auto").checked=true;
+  setType("rechnung");
+};
+
+$("loadExample").onclick=()=>{applyState(structuredClone(EXAMPLE));render();};
+$("reset").onclick=()=>{
+  if(!confirm("Alle Eingaben des aktuellen Dokuments zurücksetzen? Archiv und Kunden bleiben erhalten."))
+    return;
+  try{localStorage.removeItem(K_STATE);}catch(e){}
+  const d=structuredClone(DEFAULTS);
+  d.odatum=todayISO(); d.rdatum=todayISO(); d.ldatum=todayISO();
+  applyState(d); render();
+};
+
+/* ===================== Mobile ===================== */
 function setTab(preview){
-  document.body.classList.toggle("show-preview", preview);
-  document.getElementById("tabEdit").classList.toggle("active", !preview);
-  document.getElementById("tabPrev").classList.toggle("active", preview);
+  document.body.classList.toggle("show-preview",preview);
+  $("tabEdit").classList.toggle("active",!preview);
+  $("tabPrev").classList.toggle("active",preview);
   if(preview) fitSheets();
 }
-document.getElementById("tabEdit").onclick=()=>setTab(false);
-document.getElementById("tabPrev").onclick=()=>{setTab(true);window.scrollTo(0,0);};
-
-// Scale the 210mm sheet so it fits the viewport width on phones.
+$("tabEdit").onclick=()=>setTab(false);
+$("tabPrev").onclick=()=>{setTab(true);window.scrollTo(0,0);};
 function fitSheets(){
   if(window.innerWidth>680){document.documentElement.style.removeProperty("--mscale");return;}
-  const wrap=document.querySelector(".preview-wrap");
-  const avail=Math.max(260, wrap.clientWidth-16);   // padding allowance
-  const sheetPx=210/25.4*96;                         // 210mm in CSS px
-  const scale=Math.min(1, avail/sheetPx);
-  document.documentElement.style.setProperty("--mscale", scale.toFixed(3));
+  const wrap=$("previewWrap");
+  const avail=Math.max(260,wrap.clientWidth-16);
+  const sheetPx=210/25.4*96;
+  document.documentElement.style.setProperty("--mscale",Math.min(1,avail/sheetPx).toFixed(3));
 }
-window.addEventListener("resize", fitSheets);
-window.addEventListener("orientationchange", ()=>setTimeout(fitSheets,150));
+window.addEventListener("resize",fitSheets);
+window.addEventListener("orientationchange",()=>setTimeout(fitSheets,150));
 
 /* ===================== Init ===================== */
 (function init(){
-  let saved=null;
-  try{ saved=JSON.parse(localStorage.getItem(STORE_KEY)); }catch(e){}
-  applyState(saved && saved.nr!=null ? saved : structuredClone(DEFAULTS));
-  render();
-  fitSheets();
+  const saved=lsGet(K_STATE,null);
+  if(saved&&saved.items){
+    applyState(saved);
+  }else{
+    const d=structuredClone(DEFAULTS);
+    d.odatum=todayISO(); d.rdatum=todayISO(); d.ldatum=todayISO();
+    applyState(d);
+  }
+  refreshCustomers(); refreshArchive();
+  render(); fitSheets();
 })();
 </script>
 </body>
