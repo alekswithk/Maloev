@@ -219,6 +219,7 @@
       <button type="button" data-v="offerte">Offerte</button>
       <button type="button" data-v="rechnung">Rechnung</button>
       <button type="button" data-v="beides">Beides</button>
+      <button type="button" data-v="quittung">Quittung</button>
     </div>
     <input type="hidden" id="d_typ" value="beides">
 
@@ -226,6 +227,7 @@
       <button class="btn secondary tiny" id="btnNewQuote">+ Neue Offerte</button>
       <button class="btn secondary tiny" id="btnNewInvoice">+ Neue Rechnung</button>
       <button class="btn secondary tiny" id="btnFromQuote">→ Rechnung aus Offerte</button>
+      <button class="btn secondary tiny" id="btnFromInvoice">→ Quittung aus Rechnung</button>
     </div>
     <div class="bar">
       <button class="btn wide" id="btnPrint">🖨 Drucken / Als PDF speichern</button>
@@ -338,6 +340,16 @@
         <p class="inline"><input type="checkbox" id="d_runden" checked>
           <label for="d_runden">Endbetrag auf 0.05 runden (Rappenrundung)</label></p>
 
+        <div class="subh">Quittung</div>
+        <div class="row">
+          <div><label>Quittungs-Nr.</label><input id="d_qnr"></div>
+          <div><label>Zahlungsdatum</label><input id="d_zdatum" type="date"></div>
+        </div>
+        <label>Erhaltener Betrag</label><input id="d_qbetrag" type="number" step="0.01">
+        <p class="inline"><input type="checkbox" id="d_qbetrag_auto" checked>
+          <label for="d_qbetrag_auto">Betrag automatisch (Akontozahlung, sonst offener Betrag)</label></p>
+        <div class="calc" id="calcQuittung"></div>
+
         <div class="subh">Konditionen der Offerte</div>
         <div class="row">
           <div><label>Anzahlung (%)</label><input id="d_p_pct" type="number" value="50"></div>
@@ -423,18 +435,23 @@
         <div class="row">
           <div><label>Währung</label><input id="s_waehrung"></div>
           <div><label>Nächste Offerte-Nr.</label><input id="s_next_o"></div>
+        </div>
+        <div class="row">
           <div><label>Nächste Rechnung (lfd. Zahl)</label><input id="s_next_r" type="number" min="1"></div>
+          <div><label>Nächste Quittung (lfd. Zahl)</label><input id="s_next_q" type="number" min="1"></div>
         </div>
 
         <div class="subh">Standardtexte</div>
         <p class="hint" style="margin-top:4px">Platzhalter: <code>{total}</code>, <code>{faellig}</code>,
           <code>{frist}</code>, <code>{gueltig}</code>, <code>{kunde}</code>, <code>{firma}</code>,
-          <code>{nr}</code>, <code>{qrseite}</code>. <code>**fett**</code> wird fett gesetzt.</p>
+          <code>{nr}</code>, <code>{qrseite}</code>, <code>{zahldatum}</code>, <code>{erhalten}</code>.
+          <code>**fett**</code> wird fett gesetzt.</p>
         <label>Einleitung der Offerte</label><textarea id="s_intro" rows="2"></textarea>
         <label>Konditionen-Zeile (Vorgabe)</label><input id="s_kond">
         <label>Schlusssatz der Offerte</label><textarea id="s_outro" rows="2"></textarea>
         <label>Zahlungshinweis der Rechnung</label><textarea id="s_zahlung" rows="2"></textarea>
-        <label>Dankestext der Rechnung</label><textarea id="s_dank" rows="2"></textarea>
+        <label>Bestätigungstext der Quittung</label><textarea id="s_quittung" rows="2"></textarea>
+        <label>Dankestext der Rechnung und Quittung</label><textarea id="s_dank" rows="2"></textarea>
 
         <div class="subh">Daten sichern</div>
         <div class="bar" style="margin:8px 0 0">
@@ -453,6 +470,7 @@
   <div class="preview-wrap" id="previewWrap">
     <div id="hostQuote"></div>
     <div id="hostInvoice"></div>
+    <div id="hostReceipt"></div>
     <div class="sheet qr off" id="pgQr"><img id="qrImg" alt="QR-Rechnung"></div>
   </div>
 </div>
@@ -481,27 +499,29 @@ const SET_DEFAULTS={
   kond:"50 % 5 Tage nach Vertragsabschluss / 50 % nach Lieferung.",
   outro:"Es würde uns freuen, diesen Auftrag für Sie auszuführen.",
   zahlung:"Bitte begleichen Sie den Betrag von **{total}** bis zum **{faellig}** auf das unten aufgeführte Konto.",
+  quittung:"Hiermit bestätigen wir, von **{kunde}** am **{zahldatum}** den nachstehenden Betrag dankend erhalten zu haben.",
   dank:"Wir bedanken uns herzlich für Ihren Auftrag und das entgegengebrachte Vertrauen. Bei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung."
 };
 
 const DOC_DEFAULTS={
-  typ:"beides", onr:"", rnr:"", betreff:"", odatum:"", gueltig:"", rdatum:"", ldatum:"",
-  frist:"30", referenz:"", mwst:"8.1", lieferung:"", bemerkung:"",
+  typ:"beides", onr:"", rnr:"", qnr:"", betreff:"", odatum:"", gueltig:"", rdatum:"", ldatum:"",
+  zdatum:"", frist:"30", referenz:"", mwst:"8.1", lieferung:"", bemerkung:"",
   k_firma:"", k_strasse:"", k_ort:"", k_uid:"", k_anrede:"", k_sign:"",
-  rab_label:"Mengenrabatt", rab_wert:"", rab_typ:"chf", akonto:"", akonto_datum:"",
+  rab_label:"Mengenrabatt", rab_wert:"", rab_typ:"chf", akonto:"", akonto_datum:"", qbetrag:"",
   p_pct:"50", p_frist1:"5 Werktagen", p_frist2:"30 Tagen", p_kond:"",
-  info:"", gueltig_auto:true, referenz_auto:true, info_auto:true, runden:true,
+  info:"", gueltig_auto:true, referenz_auto:true, info_auto:true, runden:true, qbetrag_auto:true,
   items:[{bez:"",menge:"",einheit:"",preis:"",betrag:"",fix:false}],
   qr:null, qrName:""
 };
 
 const SET_IDS=["firma","handel","inhaber","strasse","ort","uid","kontakt","gf","mail","tel",
-  "bank","iban","mwst","frist","gueltig_m","waehrung","intro","kond","outro","zahlung","dank"];
-const DOC_TEXT_IDS=["typ","onr","rnr","betreff","odatum","gueltig","rdatum","ldatum","frist",
-  "referenz","mwst","lieferung","bemerkung","k_firma","k_strasse","k_ort","k_uid","k_anrede",
-  "k_sign","rab_label","rab_wert","rab_typ","akonto","akonto_datum","p_pct","p_frist1",
-  "p_frist2","p_kond","info"];
-const DOC_CHECK_IDS=["gueltig_auto","referenz_auto","info_auto","runden"];
+  "bank","iban","mwst","frist","gueltig_m","waehrung","intro","kond","outro","zahlung",
+  "quittung","dank"];
+const DOC_TEXT_IDS=["typ","onr","rnr","qnr","betreff","odatum","gueltig","rdatum","ldatum",
+  "zdatum","frist","referenz","mwst","lieferung","bemerkung","k_firma","k_strasse","k_ort",
+  "k_uid","k_anrede","k_sign","rab_label","rab_wert","rab_typ","akonto","akonto_datum",
+  "qbetrag","p_pct","p_frist1","p_frist2","p_kond","info"];
+const DOC_CHECK_IDS=["gueltig_auto","referenz_auto","info_auto","runden","qbetrag_auto"];
 
 let qrData=null, qrName="";
 
@@ -660,6 +680,11 @@ function migrateOld(){
 function setType(v,silent){
   $("d_typ").value=v;
   document.querySelectorAll("#segType button").forEach(b=>b.classList.toggle("active",b.dataset.v===v));
+  /* Beim Wechsel auf die Quittung fehlen Nummer und Zahlungsdatum meist noch. */
+  if(!silent&&v==="quittung"){
+    if(!$("d_qnr").value.trim()){ $("d_qnr").value=nextReceiptNr(); showCounters(); }
+    if(!$("d_zdatum").value) $("d_zdatum").value=todayISO();
+  }
   if(!silent) render();
 }
 
@@ -723,8 +748,17 @@ function compute(d){
   const akonto=round2(parseNum(d.akonto)||0);
   let offen=round2(brutto-akonto);
   if(d.runden) offen=round05(offen);
+  /* Quittung: quittiert wird die Akontozahlung, sonst der offene Betrag.
+     Als Rechnungsbetrag gilt der gerundete Endbetrag, damit erhaltener und
+     offener Betrag zusammen wieder die Rechnung ergeben. */
+  const rgTotal=d.runden?round05(brutto):brutto;
+  const rundung=round2(rgTotal-brutto);
+  const erhaltenAuto=akonto>0?akonto:offen;
+  const erhalten=d.qbetrag_auto?erhaltenAuto:round2(parseNum(d.qbetrag)||0);
+  const rest=round2(rgTotal-erhalten);
   return {rows:rows,netto:netto,rabatt:rabatt,nettoNachRabatt:nettoNachRabatt,rate:rate,
-          mwstBetrag:mwstBetrag,brutto:brutto,akonto:akonto,offen:offen};
+          mwstBetrag:mwstBetrag,brutto:brutto,akonto:akonto,offen:offen,
+          rgTotal:rgTotal,rundung:rundung,erhaltenAuto:erhaltenAuto,erhalten:erhalten,rest:rest};
 }
 
 /* ===================== Automatikfelder ===================== */
@@ -758,7 +792,9 @@ function fillPh(txt,ctx){
     .replace(/\{kunde\}/g,ctx.d.k_firma||"")
     .replace(/\{firma\}/g,ctx.set.handel||ctx.set.firma||"")
     .replace(/\{nr\}/g,ctx.nr||"")
-    .replace(/\{qrseite\}/g,ctx.qrPage||"");
+    .replace(/\{qrseite\}/g,ctx.qrPage||"")
+    .replace(/\{zahldatum\}/g,ddmmyyyy(ctx.d.zdatum)||"…")
+    .replace(/\{erhalten\}/g,ctx.cur+" "+fmt2(ctx.c.erhalten));
 }
 function autoInfo(ctx){
   const d=ctx.d, set=ctx.set, c=ctx.c, cur=ctx.cur, out=[];
@@ -817,8 +853,22 @@ function rowHtml(r,i){
     '<td class="num">'+menge+'</td><td class="num">'+(r.preis!=null?fmt2(r.preis):"")+'</td>'+
     '<td class="num">'+(r.betrag!=null?fmt2(r.betrag):"")+'</td></tr>';
 }
+function sumsTable(L,letzte){
+  return '<div class="sums"><table class="sum"><tbody>'+
+    L.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td class="v">'+esc(r[1])+'</td></tr>';}).join("")+
+    '<tr class="tot"><td>'+esc(letzte[0])+'</td><td class="v">'+esc(letzte[1])+'</td></tr>'+
+    '</tbody></table></div>';
+}
 function sumsHtml(ctx,kind){
   const c=ctx.c, cur=ctx.cur, d=ctx.d, L=[];
+  /* Die Quittung zeigt den Rechnungsbetrag und was davon bezahlt wurde. */
+  if(kind==="quittung"){
+    L.push(["Betrag exkl. MWST",fmt2(c.nettoNachRabatt)]);
+    L.push(["MWST "+fmtNum(c.rate,1)+" %",fmtSigned(c.mwstBetrag,"+")]);
+    if(Math.abs(c.rundung)>=0.005) L.push(["Rundung",fmtSigned(c.rundung)]);
+    L.push(["Rechnungsbetrag inkl. MWST",fmt2(c.rgTotal)]);
+    return sumsTable(L,["Erhaltener Betrag "+cur,fmt2(c.erhalten)]);
+  }
   L.push(["Zwischentotal exkl. MWST",fmt2(c.netto)]);
   if(c.rabatt){
     L.push([d.rab_label||"Rabatt",fmtSigned(-c.rabatt,"–")]);
@@ -835,17 +885,16 @@ function sumsHtml(ctx,kind){
   }else{
     letzte=["Total inkl. MWST "+cur,fmt2(c.brutto)];
   }
-  return '<div class="sums"><table class="sum"><tbody>'+
-    L.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td class="v">'+esc(r[1])+'</td></tr>';}).join("")+
-    '<tr class="tot"><td>'+esc(letzte[0])+'</td><td class="v">'+esc(letzte[1])+'</td></tr>'+
-    '</tbody></table></div>';
+  return sumsTable(L,letzte);
 }
 
 /* ===================== Blätter zusammensetzen ===================== */
 function buildDoc(host,ctx,kind){
   const set=ctx.set, d=ctx.d;
-  const titel=kind==="offerte"?"Offerte":"Rechnung";
-  const nr=kind==="offerte"?(d.onr?"Nr. "+d.onr:""):(d.rnr?"Nr. "+d.rnr:"");
+  const titel=kind==="offerte"?"Offerte":kind==="quittung"?"Quittung":"Rechnung";
+  const nr=kind==="offerte"?(d.onr?"Nr. "+d.onr:"")
+          :kind==="quittung"?(d.qnr?"Nr. "+d.qnr:"")
+          :(d.rnr?"Nr. "+d.rnr:"");
 
   let lead="";
   if(d.betreff) lead+='<div class="subject">'+esc(d.betreff)+'</div>';
@@ -853,6 +902,7 @@ function buildDoc(host,ctx,kind){
     if(d.k_anrede) lead+='<p class="tx">'+esc(d.k_anrede)+'</p>';
     if(set.intro) lead+='<p class="tx">'+rich(fillPh(set.intro,ctx))+'</p>';
   }
+  if(kind==="quittung"&&set.quittung) lead+='<p class="tx">'+rich(fillPh(set.quittung,ctx))+'</p>';
 
   let tail=sumsHtml(ctx,kind)+'<div class="after">';
   if(kind==="offerte"){
@@ -874,6 +924,12 @@ function buildDoc(host,ctx,kind){
         (d.k_sign&&d.k_sign!==d.k_firma?'<br>'+esc(d.k_sign):'<br>&nbsp;')+
         '<div class="line">Datum, Unterschrift</div></div>'+
       '</div>';
+  }else if(kind==="quittung"){
+    tail+='<p class="tx">'+(ctx.c.rest>0.004
+      ? "Es verbleibt ein offener Betrag von "+esc(ctx.cur)+" "+fmt2(ctx.c.rest)+"."
+      : "Die Rechnung"+(d.rnr?" Nr. "+esc(d.rnr):"")+" ist damit vollständig beglichen.")+'</p>';
+    if(d.bemerkung) tail+='<p class="tx">'+rich(d.bemerkung)+'</p>';
+    if(set.dank) tail+='<p class="tx">'+rich(fillPh(set.dank,ctx))+'</p>';
   }else{
     if(set.zahlung) tail+='<p class="tx">'+rich(fillPh(set.zahlung,ctx))+'</p>';
     if(ctx.infoLines.length) tail+='<ul class="tx">'+ctx.infoLines.map(function(l){
@@ -888,13 +944,15 @@ function buildDoc(host,ctx,kind){
   }
   tail+='</div>';
 
+  /* Die Quittung verweist auf die Rechnung und listet die Positionen nicht auf. */
+  const mitTabelle=kind!=="quittung";
   return paginate(host,{
     head:headHtml(ctx,titel,nr,false),
     contHead:headHtml(ctx,titel,nr,true),
     foot:footHtml(set),
-    table:posTableHtml(ctx),
+    table:mitTabelle?posTableHtml(ctx):"",
     lead:lead, tail:tail,
-    rows:ctx.c.rows.map(rowHtml)
+    rows:mitTabelle?ctx.c.rows.map(rowHtml):[]
   });
 }
 
@@ -949,7 +1007,8 @@ function paginate(host,parts){
 /* ===================== Prüfung ===================== */
 function validate(d,set,c){
   const E=[],W=[];
-  const wantQ=d.typ!=="rechnung", wantR=d.typ!=="offerte";
+  const wantU=d.typ==="quittung";
+  const wantQ=!wantU&&d.typ!=="rechnung", wantR=!wantU&&d.typ!=="offerte";
   if(!String(d.k_firma||"").trim()) E.push("Kunde: Firma fehlt");
   if(!String(d.k_ort||"").trim()) E.push("Kunde: PLZ und Ort fehlen");
   if(!c.rows.length) E.push("Keine Position erfasst");
@@ -961,6 +1020,16 @@ function validate(d,set,c){
   if(wantR&&!String(d.rnr||"").trim()) W.push("Rechnungs-Nr. fehlt");
   if(wantQ&&d.gueltig&&d.odatum&&d.gueltig<d.odatum) E.push("Gültig-bis liegt vor dem Offertdatum");
   if(wantR&&d.ldatum&&d.rdatum&&d.ldatum>d.rdatum) W.push("Leistungsdatum liegt nach dem Rechnungsdatum");
+  if(wantU){
+    if(!d.zdatum) E.push("Zahlungsdatum der Quittung fehlt");
+    if(!(c.erhalten>0)) E.push("Erhaltener Betrag fehlt");
+    if(!String(d.qnr||"").trim()) W.push("Quittungs-Nr. fehlt");
+    if(!String(d.rnr||"").trim()) W.push("Rechnungs-Nr. fehlt – die Quittung verweist auf keine Rechnung");
+    /* Eine Akontozahlung darf vor dem Rechnungsdatum liegen. */
+    if(d.zdatum&&d.rdatum&&d.zdatum<d.rdatum&&Math.abs(c.erhalten-c.akonto)>0.004)
+      W.push("Zahlungsdatum liegt vor dem Rechnungsdatum");
+    if(c.erhalten>c.rgTotal+0.004) W.push("Erhaltener Betrag ist grösser als der Rechnungsbetrag");
+  }
   if(["8.1","2.6","3.8","0"].indexOf(String(parseFloat(d.mwst)))<0)
     W.push("Ungewöhnlicher MWST-Satz: "+d.mwst+" %");
   if(!String(set.iban||"").trim()) W.push("Keine IBAN in den Einstellungen");
@@ -983,7 +1052,8 @@ function render(){
   const cur=set.waehrung||"CHF";
   const faellig=addDays(d.rdatum,parseInt(d.frist,10));
   const typ=d.typ||"beides";
-  const showQ=typ!=="rechnung", showR=typ!=="offerte", showQr=showR&&!!qrData;
+  const showU=typ==="quittung";
+  const showQ=!showU&&typ!=="rechnung", showR=!showU&&typ!=="offerte", showQr=showR&&!!qrData;
 
   /* ---- Offerte ---- */
   let qPages=0;
@@ -1013,6 +1083,16 @@ function render(){
     if(d.info_auto) $("d_info").value=ctxR.infoLines.join("\n");
   } else $("hostInvoice").innerHTML="";
 
+  /* ---- Quittung ---- */
+  if(showU){
+    const ctxU={d:d,set:set,c:c,cur:cur,faellig:faellig,qrPage:null,infoLines:[],nr:d.qnr,
+      meta:[["Zahlungsdatum",ddmmyyyy(d.zdatum)],["Rechnungsnummer",d.rnr],
+            ["Rechnungsdatum",ddmmyyyy(d.rdatum)],["Leistungsdatum",ddmmyyyy(d.ldatum)],
+            ["Referenz",d.referenz],["MWST-Nr.",set.uid]]
+           .filter(function(r){return String(r[1]||"").trim();})};
+    buildDoc($("hostReceipt"),ctxU,"quittung");
+  } else $("hostReceipt").innerHTML="";
+
   /* ---- QR-Beilage ---- */
   $("pgQr").classList.toggle("off",!showQr);
   if(showQr){
@@ -1027,6 +1107,14 @@ function render(){
 
   /* ---- Rückmeldungen im Formular ---- */
   $("calcFaellig").textContent=faellig?"Zahlbar bis "+ddmmyyyy(faellig):"";
+  const qAuto=$("d_qbetrag_auto").checked;
+  $("d_qbetrag").disabled=qAuto;
+  if(qAuto) $("d_qbetrag").value=c.erhalten?fmt2(c.erhalten).replace(/'/g,""):"";
+  $("calcQuittung").textContent=c.erhalten
+    ? (c.rest>0.004?"Erhalten "+cur+" "+fmt2(c.erhalten)+" von "+fmt2(c.rgTotal)+
+                    " – offen bleiben "+cur+" "+fmt2(c.rest)
+                   :"Erhalten "+cur+" "+fmt2(c.erhalten)+" – Rechnung vollständig beglichen")
+    : "";
   const ib=$("calcIban");
   if(!String(set.iban||"").trim()){ib.textContent="";}
   else if(ibanValid(set.iban)){ib.textContent="IBAN gültig ✓";ib.style.color="var(--ok)";}
@@ -1041,12 +1129,15 @@ function render(){
   const anz=c.rows.length;
   $("sum1").textContent=d.k_firma?d.k_firma+(d.k_ort?", "+d.k_ort:""):"noch offen";
   $("sum2").textContent=anz?anz+" Position"+(anz>1?"en":"")+" · "+cur+" "+fmt2(c.netto):"noch offen";
-  $("sum3").textContent=(d.frist||"–")+" Tage · MWST "+fmtNum(c.rate,1)+" %";
+  $("sum3").textContent=showU
+    ? "bezahlt "+(ddmmyyyy(d.zdatum)||"–")+" · "+cur+" "+fmt2(c.erhalten)
+    : (d.frist||"–")+" Tage · MWST "+fmtNum(c.rate,1)+" %";
   $("sum4").textContent=v.E.length?v.E.length+" Fehler"
     :(v.W.length?v.W.length+" Hinweis"+(v.W.length>1?"e":""):"bereit");
   $("acc1").classList.toggle("done",!!(String(d.k_firma).trim()&&String(d.k_ort).trim()));
   $("acc2").classList.toggle("done",anz>0);
-  $("acc3").classList.toggle("done",!!((showQ?d.odatum:true)&&(showR?d.rdatum:true)));
+  $("acc3").classList.toggle("done",
+    !!((showQ?d.odatum:true)&&(showR?d.rdatum:true)&&(showU?d.zdatum&&c.erhalten>0:true)));
   $("acc4").classList.toggle("done",v.E.length===0);
   $("rowSum").textContent=anz?"Zwischentotal exkl. MWST: "+cur+" "+fmt2(c.netto):"";
 
@@ -1113,7 +1204,11 @@ $("qrFile").onchange=async function(e){
 $("qrRemove").onclick=function(){qrData=null;qrName="";render();};
 
 /* ===================== Nummernkreise ===================== */
-function counters(){return lsGet(K_CNT,{offerte:26372,rjahr:new Date().getFullYear(),rn:0});}
+function counters(){
+  const c=lsGet(K_CNT,{offerte:26372,rjahr:new Date().getFullYear(),rn:0});
+  if(c.qjahr==null){c.qjahr=new Date().getFullYear();c.qn=0;}
+  return c;
+}
 function nextOfferNr(){
   const c=counters(); c.offerte=(parseInt(c.offerte,10)||0)+1; lsSet(K_CNT,c);
   return String(c.offerte).padStart(6,"0");
@@ -1124,10 +1219,17 @@ function nextInvoiceNr(){
   c.rn=(parseInt(c.rn,10)||0)+1; lsSet(K_CNT,c);
   return "RE-"+y+"-"+String(c.rn).padStart(2,"0");
 }
+function nextReceiptNr(){
+  const c=counters(), y=new Date().getFullYear();
+  if(c.qjahr!==y){c.qjahr=y;c.qn=0;}
+  c.qn=(parseInt(c.qn,10)||0)+1; lsSet(K_CNT,c);
+  return "QU-"+y+"-"+String(c.qn).padStart(2,"0");
+}
 function showCounters(){
   const c=counters();
   $("s_next_o").value=String((parseInt(c.offerte,10)||0)+1).padStart(6,"0");
   $("s_next_r").value=(parseInt(c.rn,10)||0)+1;
+  $("s_next_q").value=(parseInt(c.qn,10)||0)+1;
 }
 $("s_next_o").addEventListener("change",function(){
   const c=counters(), n=parseInt($("s_next_o").value,10);
@@ -1136,6 +1238,10 @@ $("s_next_o").addEventListener("change",function(){
 $("s_next_r").addEventListener("change",function(){
   const c=counters(), n=parseInt($("s_next_r").value,10);
   if(!isNaN(n)){c.rn=n-1;c.rjahr=new Date().getFullYear();lsSet(K_CNT,c);} showCounters();
+});
+$("s_next_q").addEventListener("change",function(){
+  const c=counters(), n=parseInt($("s_next_q").value,10);
+  if(!isNaN(n)){c.qn=n-1;c.qjahr=new Date().getFullYear();lsSet(K_CNT,c);} showCounters();
 });
 
 /* ===================== Kunden ===================== */
@@ -1172,9 +1278,10 @@ $("d_k_firma").addEventListener("input",function(){
 /* ===================== Archiv ===================== */
 function archive(){return lsGet(K_ARC,[]);}
 function docLabel(d){
-  const t=d.typ==="offerte"?"Offerte":d.typ==="rechnung"?"Rechnung":"Offerte+Rechnung";
-  const nr=d.typ==="offerte"?d.onr:(d.rnr||d.onr);
-  const dat=d.typ==="offerte"?d.odatum:(d.rdatum||d.odatum);
+  const t=d.typ==="offerte"?"Offerte":d.typ==="rechnung"?"Rechnung"
+         :d.typ==="quittung"?"Quittung":"Offerte+Rechnung";
+  const nr=d.typ==="offerte"?d.onr:d.typ==="quittung"?(d.qnr||d.rnr):(d.rnr||d.onr);
+  const dat=d.typ==="offerte"?d.odatum:d.typ==="quittung"?(d.zdatum||d.rdatum):(d.rdatum||d.odatum);
   return t+" "+(nr||"–")+" · "+(d.k_firma||"ohne Kunde")+" · "+(ddmmyyyy(dat)||"ohne Datum");
 }
 function refreshArchive(){
@@ -1198,8 +1305,12 @@ $("arcDup").onclick=function(){
   const e=archive()[$("arcSel").value]; if(!e) return;
   const d=JSON.parse(JSON.stringify(e.doc));
   d.odatum=todayISO(); d.rdatum=todayISO(); d.ldatum=todayISO();
-  if(d.typ!=="rechnung") d.onr=nextOfferNr();
-  if(d.typ!=="offerte") d.rnr=nextInvoiceNr();
+  if(d.typ==="quittung"){
+    d.zdatum=todayISO(); d.qnr=nextReceiptNr();
+  }else{
+    if(d.typ!=="rechnung") d.onr=nextOfferNr();
+    if(d.typ!=="offerte") d.rnr=nextInvoiceNr();
+  }
   applyDoc(d); ensureEmptyRow(); showCounters(); render();
 };
 $("arcDel").onclick=function(){
@@ -1264,6 +1375,13 @@ $("btnFromQuote").onclick=function(){
   $("d_referenz_auto").checked=true;
   showCounters(); setType("rechnung");
 };
+/* Die Rechnung ist bezahlt – die Quittung übernimmt sie unverändert. */
+$("btnFromInvoice").onclick=function(){
+  if(!$("d_qnr").value.trim()) $("d_qnr").value=nextReceiptNr();
+  if(!$("d_zdatum").value) $("d_zdatum").value=todayISO();
+  showCounters(); setType("quittung");
+  $("acc3").open=true;
+};
 
 /* ===================== Drucken ===================== */
 function printName(){
@@ -1271,6 +1389,7 @@ function printName(){
   const kunde=String(d.k_firma||"").replace(/[\\/:*?"<>|]/g,"").trim();
   const base=d.typ==="rechnung"?"Rechnung_"+(d.rnr||"ohne-Nr")
             :d.typ==="offerte"?"Offerte_"+(d.onr||"ohne-Nr")
+            :d.typ==="quittung"?"Quittung_"+(d.qnr||d.rnr||"ohne-Nr")
             :"Offerte-"+(d.onr||"?")+"_Rechnung-"+(d.rnr||"?");
   return (base+(kunde?"_"+kunde:"")).replace(/\s+/g," ").trim();
 }
@@ -1296,9 +1415,10 @@ window.addEventListener("afterprint",function(){
 /* ===================== Beispiel ===================== */
 $("btnExample").onclick=function(){
   const d=JSON.parse(JSON.stringify(DOC_DEFAULTS));
-  d.typ="beides"; d.onr="026372"; d.rnr="RE-2026-02";
+  d.typ="beides"; d.onr="026372"; d.rnr="RE-2026-02"; d.qnr="QU-2026-01";
   d.betreff="Lieferung Verpackungsmaterial";
   d.odatum="2026-08-05"; d.rdatum="2026-08-05"; d.ldatum="2026-08-05"; d.frist="30";
+  d.zdatum="2026-06-29";
   d.k_firma="Nordex 2 GmbH"; d.k_strasse="Lindenquai 4"; d.k_ort="7000 Chur";
   d.k_anrede="Sehr geehrte Damen und Herren"; d.k_sign="Nordex 2 GmbH";
   d.rab_label="Mengenrabatt"; d.rab_wert="100"; d.rab_typ="chf";
