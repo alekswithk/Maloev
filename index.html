@@ -30,6 +30,20 @@
        font:inherit;font-size:13px;font-weight:600;padding:9px 4px;cursor:pointer}
   .seg button:last-child{border-right:0}
   .seg button.active{background:var(--accent);color:#fff}
+  .seg.tabs{margin:2px 0 4px}
+  .seg.tabs button{font-size:12px;padding:7px 6px}
+  /* Summenblock-Editor */
+  .sl{display:flex;gap:4px;align-items:center;padding:5px 0;border-bottom:1px solid #eee;flex-wrap:wrap}
+  .sl .sn{font-size:11px;color:var(--muted);width:92px;flex:none}
+  .sl input,.sl select{flex:1;min-width:70px;padding:5px 6px;font-size:12px}
+  .sl input.w{flex:none;width:70px}
+  .sl select{flex:none;width:auto}
+  .sl button{border:1px solid #ccc;background:#fff;color:#555;border-radius:5px;padding:3px 7px;cursor:pointer}
+  @media screen{
+    table.sum tr[draggable]{cursor:grab}
+    table.sum tr.drop-above td{box-shadow:inset 0 2px 0 var(--accent)}
+    table.sum tr.drop-below td{box-shadow:inset 0 -2px 0 var(--accent)}
+  }
   .bar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
   .btn{font:inherit;font-size:13px;padding:8px 12px;border:1px solid var(--accent);background:var(--accent);
        color:#fff;border-radius:7px;cursor:pointer}
@@ -289,7 +303,12 @@
       <summary><span class="step">3</span><span class="ttl">Zahlung &amp; Fristen</span>
         <span class="rsum" id="sum3"></span><span class="chev">›</span></summary>
       <div class="inner">
-        <div class="subh">Nummern &amp; Daten</div>
+        <div class="seg tabs" id="tabs3">
+          <button data-tab="t3a" class="active">Nummern &amp; Daten</button>
+          <button data-tab="t3b">Steuern, Abzüge &amp; Konditionen</button>
+        </div>
+        <div id="t3a">
+        <div class="subh">Offerte</div>
         <div class="row">
           <div><label>Offerte-Nr.</label><input id="d_onr"></div>
           <div><label>Offertdatum</label><input id="d_odatum" type="date"></div>
@@ -301,7 +320,7 @@
         <p class="inline"><input type="checkbox" id="d_gueltig_auto" checked>
           <label for="d_gueltig_auto">Gültigkeit automatisch (Offertdatum + <span id="lblMonate">1</span> Monat)</label></p>
 
-        <hr class="sep">
+        <div class="subh">Rechnung</div>
         <div class="row">
           <div><label>Rechnungs-Nr.</label><input id="d_rnr"></div>
           <div><label>Rechnungsdatum</label><input id="d_rdatum" type="date"></div>
@@ -315,6 +334,14 @@
           <label for="d_referenz_auto">Referenz automatisch aus der Offerte-Nr.</label></p>
         <div class="calc" id="calcFaellig"></div>
 
+        <div class="subh">Quittung</div>
+        <div class="row">
+          <div><label>Quittungs-Nr.</label><input id="d_qnr"></div>
+          <div><label>Zahlungsdatum</label><input id="d_zdatum" type="date"></div>
+        </div>
+        </div>
+
+        <div id="t3b" hidden>
         <div class="subh">Steuer &amp; Abzüge</div>
         <div class="row">
           <div><label>MWST-Satz</label>
@@ -340,11 +367,18 @@
         <p class="inline"><input type="checkbox" id="d_runden" checked>
           <label for="d_runden">Endbetrag auf 0.05 runden (Rappenrundung)</label></p>
 
-        <div class="subh">Quittung</div>
-        <div class="row">
-          <div><label>Quittungs-Nr.</label><input id="d_qnr"></div>
-          <div><label>Zahlungsdatum</label><input id="d_zdatum" type="date"></div>
+        <div class="subh">Reihenfolge der Beträge</div>
+        <div id="sumsEd"></div>
+        <div class="bar" style="margin:8px 0 0">
+          <button class="btn secondary tiny" id="sumAddSub">+ Zwischentotal</button>
+          <button class="btn secondary tiny" id="sumAddExtra">+ Abzug / Zuschlag</button>
+          <button class="btn secondary tiny" id="sumReset">Standard</button>
         </div>
+        <p class="hint">Gerechnet wird von oben nach unten: was über der MWST steht, senkt die
+          MWST-Basis. Leere Bezeichnung = automatischer Text. Zeilen lassen sich auch direkt
+          in der Vorschau ziehen. Beträge von 0 werden nicht gedruckt.</p>
+
+        <div class="subh">Quittung</div>
         <label>Erhaltener Betrag</label><input id="d_qbetrag" type="number" step="0.01">
         <p class="inline"><input type="checkbox" id="d_qbetrag_auto" checked>
           <label for="d_qbetrag_auto">Betrag automatisch (Akontozahlung, sonst offener Betrag)</label></p>
@@ -357,6 +391,7 @@
           <div><label>Frist 2. Zahlung</label><input id="d_p_frist2" value="30 Tagen"></div>
         </div>
         <label>Konditionen-Zeile</label><input id="d_p_kond">
+        </div>
       </div>
     </details>
 
@@ -527,8 +562,11 @@ const DOC_DEFAULTS={
   p_pct:"50", p_frist1:"5 Werktagen", p_frist2:"30 Tagen", p_kond:"",
   info:"", gueltig_auto:true, referenz_auto:true, info_auto:true, runden:true, qbetrag_auto:true,
   items:[{bez:"",menge:"",einheit:"",preis:"",betrag:"",fix:false}],
-  qr:null, qrName:""
+  qr:null, qrName:"", sums:null
 };
+/* Summenblock: Zeilen werden der Reihe nach verrechnet.
+   sub = Zwischentotal, rabatt/akonto = Felder oben, extra = eigener Abzug/Zuschlag. */
+const SUMS_DEFAULT=[{t:"sub"},{t:"rabatt"},{t:"sub"},{t:"mwst"},{t:"sub"},{t:"akonto"}];
 
 const SET_IDS=["firma","handel","inhaber","strasse","ort","uid","kontakt","gf","mail","tel",
   "bank","iban","mwst","frist","gueltig_m","waehrung","intro","kond","outro","zahlung",
@@ -539,7 +577,7 @@ const DOC_TEXT_IDS=["typ","onr","rnr","qnr","betreff","odatum","gueltig","rdatum
   "qbetrag","p_pct","p_frist1","p_frist2","p_kond","info"];
 const DOC_CHECK_IDS=["gueltig_auto","referenz_auto","info_auto","runden","qbetrag_auto"];
 
-let qrData=null, qrName="";
+let qrData=null, qrName="", sumsData=JSON.parse(JSON.stringify(SUMS_DEFAULT));
 
 /* ===================== Helfer ===================== */
 const $=id=>document.getElementById(id);
@@ -652,7 +690,7 @@ function readDoc(){
       fix:tr.dataset.fix==="1"
     });
   });
-  d.qr=qrData; d.qrName=qrName;
+  d.qr=qrData; d.qrName=qrName; d.sums=JSON.parse(JSON.stringify(sumsData));
   return d;
 }
 function applyDoc(d){
@@ -662,6 +700,8 @@ function applyDoc(d){
   $("itemBody").innerHTML="";
   (d.items&&d.items.length?d.items:[{}]).forEach(addItemRow);
   qrData=d.qr||null; qrName=d.qrName||"";
+  sumsData=JSON.parse(JSON.stringify(d.sums&&d.sums.length?d.sums:SUMS_DEFAULT));
+  renderSumsEditor();
   syncMwstSelect();
 }
 
@@ -764,26 +804,44 @@ function compute(d){
     rows.push({bez:it.bez,menge:menge,einheit:it.einheit,preis:preis,betrag:betrag});
   });
   netto=round2(netto);
-  const rabRaw=parseNum(d.rab_wert)||0;
-  const rabatt=round2(d.rab_typ==="pct"?netto*rabRaw/100:rabRaw);
-  const nettoNachRabatt=round2(netto-rabatt);
   const rate=parseFloat(d.mwst)||0;
-  const mwstBetrag=round2(nettoNachRabatt*rate/100);
-  const brutto=round2(nettoNachRabatt+mwstBetrag);
+  /* Ohne Akonto = Preis des Auftrags (Offerte), mit Akonto = Rechnung. */
+  const Q=runSums(d,netto,rate,false), R=runSums(d,netto,rate,true);
+  const rabatt=-Q.lines.reduce(function(a,x){return a+(x.l.t==="rabatt"?x.amt:0);},0);
+  const nettoNachRabatt=Q.base, mwstBetrag=Q.mwst, brutto=Q.run;
   const akonto=round2(parseNum(d.akonto)||0);
-  let offen=round2(brutto-akonto);
-  if(d.runden) offen=round05(offen);
+  const offenRaw=R.run;
+  const offen=d.runden?round05(offenRaw):offenRaw;
   /* Quittung: quittiert wird die Akontozahlung, sonst der offene Betrag.
      Als Rechnungsbetrag gilt der gerundete Endbetrag, damit erhaltener und
      offener Betrag zusammen wieder die Rechnung ergeben. */
   const rgTotal=d.runden?round05(brutto):brutto;
   const rundung=round2(rgTotal-brutto);
-  const erhaltenAuto=akonto>0?akonto:offen;
+  /* Steht die Akontozahlung über der MWST, ist bezahlt = Betrag inkl. MWST-Anteil. */
+  const erhaltenAuto=akonto>0?round2(brutto-offenRaw):offen;
   const erhalten=d.qbetrag_auto?erhaltenAuto:round2(parseNum(d.qbetrag)||0);
   const rest=round2(rgTotal-erhalten);
   return {rows:rows,netto:netto,rabatt:rabatt,nettoNachRabatt:nettoNachRabatt,rate:rate,
           mwstBetrag:mwstBetrag,brutto:brutto,akonto:akonto,offen:offen,
-          rgTotal:rgTotal,rundung:rundung,erhaltenAuto:erhaltenAuto,erhalten:erhalten,rest:rest};
+          rgTotal:rgTotal,rundung:rundung,erhaltenAuto:erhaltenAuto,erhalten:erhalten,rest:rest,
+          linesQ:Q.lines,linesR:R.lines};
+}
+function runSums(d,netto,rate,withAkonto){
+  let run=netto, base=null, mwst=0;
+  const lines=[];
+  (d.sums||SUMS_DEFAULT).forEach(function(l,i){
+    let amt=null;
+    if(l.t==="rabatt"){const w=parseNum(d.rab_wert)||0; amt=-round2(d.rab_typ==="pct"?run*w/100:w);}
+    else if(l.t==="mwst"){base=run; mwst=amt=round2(run*rate/100);}
+    else if(l.t==="akonto"){if(!withAkonto) return; amt=-round2(parseNum(d.akonto)||0);}
+    else if(l.t==="extra"){
+      const w=parseNum(l.wert)||0, v=round2(l.typ==="pct"?run*w/100:w);
+      amt=l.op==="+"?v:-v;
+    }
+    if(amt!==null) run=round2(run+amt);
+    lines.push({i:i,l:l,amt:amt,run:run,afterMwst:base!==null});
+  });
+  return {run:run,base:base===null?run:base,mwst:mwst,lines:lines};
 }
 
 /* ===================== Automatikfelder ===================== */
@@ -880,7 +938,8 @@ function rowHtml(r,i){
 }
 function sumsTable(L,letzte){
   return '<div class="sums"><table class="sum"><tbody>'+
-    L.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td class="v">'+esc(r[1])+'</td></tr>';}).join("")+
+    L.map(function(r){return '<tr'+(r[2]!=null?' draggable="true" data-k="'+r[2]+'"':'')+'><td>'+
+      esc(r[0])+'</td><td class="v">'+esc(r[1])+'</td></tr>';}).join("")+
     '<tr class="tot"><td>'+esc(letzte[0])+'</td><td class="v">'+esc(letzte[1])+'</td></tr>'+
     '</tbody></table></div>';
 }
@@ -894,23 +953,26 @@ function sumsHtml(ctx,kind){
     L.push(["Rechnungsbetrag inkl. MWST",fmt2(c.rgTotal)]);
     return sumsTable(L,["Erhaltener Betrag "+cur,fmt2(c.erhalten)]);
   }
-  L.push(["Zwischentotal exkl. MWST",fmt2(c.netto)]);
-  if(c.rabatt){
-    L.push([d.rab_label||"Rabatt",fmtSigned(-c.rabatt,"–")]);
-    L.push(["Zwischentotal exkl. MWST",fmt2(c.nettoNachRabatt)]);
-  }
-  L.push(["MWST "+fmtNum(c.rate,1)+" %",fmtSigned(c.mwstBetrag,"+")]);
-  let letzte;
-  if(kind==="rechnung"){
-    if(c.akonto){
-      L.push(["Total inkl. MWST",fmt2(c.brutto)]);
-      L.push(["Akontozahlung"+(d.akonto_datum?" vom "+ddmmyyyy(d.akonto_datum):""),fmtSigned(-c.akonto,"–")]);
+  (kind==="rechnung"?c.linesR:c.linesQ).forEach(function(x){
+    const l=x.l, own=String(l.label||"").trim();
+    if(l.t==="sub"){
+      L.push([own||(x.afterMwst&&c.rate?"Total inkl. MWST":"Zwischentotal exkl. MWST"),fmt2(x.run),x.i,true]);
+      return;
     }
-    letzte=["Offener Betrag "+cur,fmt2(c.offen)];
-  }else{
-    letzte=["Total inkl. MWST "+cur,fmt2(c.brutto)];
-  }
-  return sumsTable(L,letzte);
+    if(l.t!=="mwst"&&!x.amt) return;                 /* 0-Beträge nicht drucken */
+    const auto=l.t==="mwst"?"MWST "+fmtNum(c.rate,1)+" %"
+      :l.t==="rabatt"?(d.rab_label||"Rabatt")
+      :l.t==="akonto"?"Akontozahlung"+(d.akonto_datum?" vom "+ddmmyyyy(d.akonto_datum):"")
+      :(x.amt<0?"Abzug":"Zuschlag");
+    L.push([own||auto,fmtSigned(x.amt,x.amt<0?"–":"+"),x.i]);
+  });
+  /* Zwischentotale nur zeigen, wenn sich seit dem letzten etwas geändert hat
+     und noch etwas folgt – sonst doppeln sie das Total. */
+  const S=L.filter(function(r,i){return !(r[3]&&i>0&&L[i-1][3]);});
+  while(S.length&&S[S.length-1][3]) S.pop();
+  const letzte=kind==="rechnung"?["Offener Betrag "+cur,fmt2(c.offen)]
+                                :["Total inkl. MWST "+cur,fmt2(c.brutto)];
+  return sumsTable(S,letzte);
 }
 
 /* ===================== Blätter zusammensetzen ===================== */
@@ -1472,6 +1534,72 @@ document.querySelectorAll("#segType button").forEach(function(b){
   b.onclick=function(){setType(b.dataset.v);};
 });
 $("addRow").onclick=function(){addItemRow({});render();};
+
+/* ===================== Summenblock bearbeiten ===================== */
+const SUM_NAMES={sub:"Zwischentotal",rabatt:"Rabatt",mwst:"MWST",akonto:"Akonto (Rechnung)",extra:"Abzug/Zuschlag"};
+function renderSumsEditor(){
+  $("sumsEd").innerHTML=sumsData.map(function(l,i){
+    let h='<div class="sl" data-k="'+i+'"><span class="sn">'+SUM_NAMES[l.t]+'</span>'+
+      '<input data-f="label" placeholder="automatisch" value="'+esc(l.label||"")+'">';
+    if(l.t==="extra") h+='<select data-f="op"><option value="-">–</option><option value="+"'+
+      (l.op==="+"?" selected":"")+'>+</option></select>'+
+      '<input class="w" data-f="wert" type="number" step="0.01" placeholder="0" value="'+esc(l.wert||"")+'">'+
+      '<select data-f="typ"><option value="chf">Betrag</option><option value="pct"'+
+      (l.typ==="pct"?" selected":"")+'>%</option></select>';
+    h+='<button data-a="up" title="nach oben">↑</button><button data-a="down" title="nach unten">↓</button>';
+    if(l.t==="sub"||l.t==="extra") h+='<button data-a="del" title="entfernen">×</button>';
+    return h+'</div>';
+  }).join("");
+}
+function moveSum(from,to){
+  if(to<0||to>=sumsData.length||from===to) return;
+  sumsData.splice(to,0,sumsData.splice(from,1)[0]);
+  renderSumsEditor(); render();
+}
+$("sumsEd").addEventListener("input",function(e){
+  const f=e.target.dataset.f, row=e.target.closest(".sl"); if(!f||!row) return;
+  sumsData[+row.dataset.k][f]=e.target.value; renderSoon();
+});
+$("sumsEd").addEventListener("click",function(e){
+  const a=e.target.dataset.a, row=e.target.closest(".sl"); if(!a||!row) return;
+  const k=+row.dataset.k;
+  if(a==="del"){sumsData.splice(k,1); renderSumsEditor(); render();}
+  else moveSum(k,a==="up"?k-1:k+1);
+});
+$("sumAddSub").onclick=function(){sumsData.push({t:"sub"}); renderSumsEditor(); render();};
+$("sumAddExtra").onclick=function(){sumsData.push({t:"extra",op:"-",wert:"",typ:"chf",label:""}); renderSumsEditor(); render();};
+$("sumReset").onclick=function(){sumsData=JSON.parse(JSON.stringify(SUMS_DEFAULT)); renderSumsEditor(); render();};
+/* Ziehen direkt in der Vorschau (Maus; auf dem Handy die Pfeile oben benutzen). */
+let dragK=null;
+function dropRow(e){return e.target.closest&&e.target.closest("table.sum tr[data-k]");}
+function clearDrop(){document.querySelectorAll(".drop-above,.drop-below").forEach(function(t){
+  t.classList.remove("drop-above","drop-below");});}
+$("previewWrap").addEventListener("dragstart",function(e){
+  const tr=dropRow(e); if(!tr) return;
+  dragK=+tr.dataset.k; e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain","");
+});
+$("previewWrap").addEventListener("dragover",function(e){
+  const tr=dropRow(e); if(!tr||dragK===null) return;
+  e.preventDefault(); clearDrop();
+  const b=tr.getBoundingClientRect();
+  tr.classList.add(e.clientY<b.top+b.height/2?"drop-above":"drop-below");
+});
+$("previewWrap").addEventListener("drop",function(e){
+  const tr=dropRow(e); if(!tr||dragK===null) return;
+  e.preventDefault();
+  let to=+tr.dataset.k+(tr.classList.contains("drop-below")?1:0);
+  if(dragK<to) to--;
+  clearDrop(); const from=dragK; dragK=null; moveSum(from,to);
+});
+$("previewWrap").addEventListener("dragend",function(){dragK=null; clearDrop();});
+
+/* Tabs in „Zahlung & Fristen" */
+document.querySelectorAll("#tabs3 button").forEach(function(b){
+  b.onclick=function(){
+    document.querySelectorAll("#tabs3 button").forEach(function(x){
+      x.classList.toggle("active",x===b); $(x.dataset.tab).hidden=x!==b;});
+  };
+});
 
 /* ===================== Mobil ===================== */
 function setTab(preview){
