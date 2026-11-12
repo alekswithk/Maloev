@@ -1,7 +1,14 @@
 # Maloev – Offerten, Rechnungen & Quittungen
 
 Ein Werkzeug zum Erstellen von Offerten, Rechnungen und Quittungen als sauberes A4-PDF.
-Läuft vollständig im Browser, ohne Server und ohne Konto. Alle Daten bleiben lokal.
+Läuft im Browser, ohne eigenen Server. Ohne Anmeldung bleiben alle Daten lokal.
+Mit **Mit Google anmelden** (unter ⚙ Einstellungen) werden Einstellungen, Kunden,
+Archiv und Nummernkreise zusätzlich in Supabase gespeichert und zwischen Geräten
+abgeglichen. Das offene Dokument bleibt pro Gerät.
+
+Einrichtung: `supabase/schema.sql` einmal im SQL Editor ausführen, danach
+`supabase/check.sql` zur Kontrolle (räumt seine Testdaten selbst weg).
+Logik-Test des Abgleichs: `node merge.test.js`.
 
 **Online:** https://alekswithk.github.io/Maloev/
 

@@ -460,8 +460,18 @@
           <button class="btn secondary tiny" id="btnExample">Beispiel laden</button>
         </div>
         <input id="importFile" type="file" accept="application/json" style="display:none">
-        <p class="hint">Alles liegt nur lokal im Browser. Der Export sichert Einstellungen,
-          Kunden, Archiv und Nummernkreise in eine Datei.</p>
+        <p class="hint">Der Export sichert Einstellungen, Kunden, Archiv und Nummernkreise
+          in eine Datei.</p>
+
+        <div class="subh">Cloud-Speicher</div>
+        <p class="hint" id="cloudStatus">Alles liegt nur lokal im Browser.</p>
+        <div class="bar" style="margin:8px 0 0">
+          <button class="btn secondary tiny" id="cloudLogin" disabled>Mit Google anmelden</button>
+          <button class="btn secondary tiny" id="cloudSync" hidden>Jetzt synchronisieren</button>
+          <button class="btn secondary tiny" id="cloudLogout" hidden>Abmelden</button>
+        </div>
+        <p class="hint">Angemeldet werden Einstellungen, Kunden, Archiv und Nummernkreise
+          im Konto gespeichert und auf allen Geräten abgeglichen.</p>
       </div>
     </details>
   </div>
@@ -475,6 +485,7 @@
   </div>
 </div>
 
+<script src="merge.js"></script>
 <script>
 /* =================================================================
    Festes Firmenlogo – als Data-URL eingebettet, damit es weder
@@ -485,7 +496,12 @@ const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAjAAAADWCAIAAABAES+O
 /* ===================== Speicher-Schlüssel ===================== */
 const K_SET="maloev_settings_v1", K_DOC="maloev_doc_v1",
       K_CUST="maloev_customers_v1", K_ARC="maloev_archive_v1",
-      K_CNT="maloev_counters_v1", K_OLD="maloev_state_v2";
+      K_CNT="maloev_counters_v1", K_OLD="maloev_state_v2",
+      K_DEL="maloev_deleted_v1", K_SETAT="maloev_settings_at_v1";
+/* Diese Schlüssel werden mit der Cloud abgeglichen (nicht das offene Dokument). */
+const SYNC_KEYS=[K_SET,K_CUST,K_ARC,K_CNT,K_DEL];
+const SUPABASE_URL="https://rnxppfstwqdomtegogqw.supabase.co",
+      SUPABASE_KEY="sb_publishable_sFCVnly_tpDl723juuKORg_FxVQ6X8o"; /* öffentlich, kein Geheimnis */
 
 /* ===================== Vorgaben ===================== */
 const SET_DEFAULTS={
@@ -531,7 +547,16 @@ function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"
   .replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function rich(s){return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\n/g,"<br>");}
 function lsGet(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v;}catch(e){return fb;}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+function lsSet(k,v){
+  try{
+    const s=JSON.stringify(v);
+    if(localStorage.getItem(k)===s) return true;
+    localStorage.setItem(k,s);
+    if(SYNC_KEYS.indexOf(k)>=0) cloudSchedule();
+    return true;
+  }catch(e){return false;}
+}
+function markDeleted(key){const d=lsGet(K_DEL,{}); d[key]=Date.now(); lsSet(K_DEL,d);}
 
 function round2(v){return Math.round((v+Number.EPSILON)*100)/100;}
 function round05(v){return Math.round(v*20)/20;}
@@ -1254,7 +1279,7 @@ function refreshCustomers(){
 function saveCustomer(d,silent){
   if(!String(d.k_firma||"").trim()) return false;
   const list=customers(), e={};
-  CUST_F.forEach(function(f){e[f]=d[f];});
+  CUST_F.forEach(function(f){e[f]=d[f];}); e.t=Date.now();
   const i=list.findIndex(function(c){return c.k_firma===e.k_firma;});
   if(i>=0){ if(silent) return false; list[i]=e; } else list.push(e);
   lsSet(K_CUST,list); refreshCustomers(); return true;
@@ -1267,7 +1292,7 @@ $("custDel").onclick=function(){
   const i=list.findIndex(function(c){return c.k_firma===name;});
   if(i<0){alert("Dieser Kunde ist nicht gespeichert.");return;}
   if(!confirm("Kunde „"+name+"\" aus der Liste löschen?")) return;
-  list.splice(i,1); lsSet(K_CUST,list); refreshCustomers();
+  list.splice(i,1); markDeleted("cust:"+name); lsSet(K_CUST,list); refreshCustomers();
 };
 /* Tippt man einen gespeicherten Namen, wird die Adresse übernommen. */
 $("d_k_firma").addEventListener("input",function(){
@@ -1317,7 +1342,7 @@ $("arcDel").onclick=function(){
   const i=$("arcSel").value; if(i==="") return;
   const list=archive();
   if(!confirm("„"+list[i].label+"\" aus dem Archiv löschen?")) return;
-  list.splice(i,1); lsSet(K_ARC,list); refreshArchive();
+  markDeleted("arc:"+list[i].label); list.splice(i,1); lsSet(K_ARC,list); refreshArchive();
 };
 
 /* ===================== Export / Import ===================== */
@@ -1336,7 +1361,7 @@ $("importFile").onchange=function(e){
   r.onload=function(){
     try{
       const d=JSON.parse(r.result);
-      if(d.settings){lsSet(K_SET,d.settings);applySettings(d.settings);}
+      if(d.settings){lsSet(K_SETAT,Date.now());lsSet(K_SET,d.settings);applySettings(d.settings);}
       if(d.customers) lsSet(K_CUST,d.customers);
       if(d.archive) lsSet(K_ARC,d.archive);
       if(d.counters) lsSet(K_CNT,d.counters);
@@ -1433,7 +1458,8 @@ $("btnExample").onclick=function(){
 };
 
 /* ===================== Verdrahtung ===================== */
-SET_IDS.forEach(function(id){const el=$("s_"+id); if(el) el.addEventListener("input",renderSoon);});
+SET_IDS.forEach(function(id){const el=$("s_"+id); if(el) el.addEventListener("input",function(){
+  lsSet(K_SETAT,Date.now()); renderSoon();});});
 DOC_TEXT_IDS.forEach(function(id){const el=$("d_"+id); if(el) el.addEventListener("input",renderSoon);});
 DOC_CHECK_IDS.forEach(function(id){const el=$("d_"+id); if(el) el.addEventListener("change",render);});
 $("d_rab_typ").addEventListener("change",render);
@@ -1464,6 +1490,104 @@ function fitSheets(){
 window.addEventListener("resize",fitSheets);
 window.addEventListener("orientationchange",function(){setTimeout(fitSheets,150);});
 
+/* ===================== Cloud (Supabase) =====================
+   Der Browser speichert sofort, die Cloud etwa eine Sekunde später.
+   Vor jedem Schreiben wird der Cloud-Stand gelesen und zusammengeführt;
+   die Revisionsprüfung verhindert, dass ein Gerät ein anderes überschreibt. */
+const cloud={client:null,user:null,timer:null,running:null,changes:0};
+function cloudStatus(m){$("cloudStatus").textContent=m;}
+function localState(){
+  return {app:"maloev",schemaVersion:1,settings:lsGet(K_SET,{}),settingsAt:+lsGet(K_SETAT,0)||0,
+    customers:customers(),archive:archive(),counters:counters(),deleted:lsGet(K_DEL,{})};
+}
+function validState(x){
+  return !!x&&x.app==="maloev"&&x.schemaVersion===1&&x.settings&&x.counters&&x.deleted
+    &&Array.isArray(x.customers)&&Array.isArray(x.archive);
+}
+function applyState(m){
+  /* Direkt schreiben, damit das Übernehmen keinen neuen Abgleich auslöst. */
+  const raw=function(k,v){localStorage.setItem(k,JSON.stringify(v));};
+  applySettings(m.settings); raw(K_SET,readSettings()); raw(K_SETAT,m.settingsAt);
+  raw(K_CUST,m.customers); raw(K_ARC,m.archive); raw(K_CNT,m.counters); raw(K_DEL,m.deleted);
+  refreshCustomers(); refreshArchive(); showCounters(); render();
+}
+function cloudSchedule(){
+  if(!cloud.user) return;
+  cloud.changes++;
+  cloudStatus("Im Browser gespeichert, Cloud folgt …");
+  clearTimeout(cloud.timer); cloud.timer=setTimeout(cloudFlush,1200);
+}
+function cloudFlush(){
+  clearTimeout(cloud.timer);
+  if(!cloud.user) return Promise.resolve(true);
+  if(!cloud.running) cloud.running=cloudSyncNow().finally(function(){cloud.running=null;});
+  return cloud.running;
+}
+async function cloudSyncNow(){
+  const uid=cloud.user.id;
+  try{
+    cloudStatus("Synchronisiere …");
+    for(let i=0;i<4;i++){
+      const r=await cloud.client.from("user_data").select("state,revision").eq("user_id",uid).maybeSingle();
+      if(r.error) throw r.error;
+      if(!cloud.user||cloud.user.id!==uid) return false;
+      if(r.data&&!validState(r.data.state)) throw new Error("Der Cloud-Stand ist ungültig und wurde nicht überschrieben.");
+      const merged=r.data?mergeState(localState(),r.data.state):localState();
+      if(r.data) applyState(merged);
+      const version=cloud.changes;
+      const w=await cloud.client.rpc("save_data",{p_state:merged,p_expected_revision:r.data?r.data.revision:0});
+      if(w.error) throw w.error;
+      if(w.data===null||version!==cloud.changes) continue;
+      cloudStatus("In der Cloud gespeichert ("+cloud.user.email+").");
+      return true;
+    }
+    throw new Error("Ein anderes Gerät hat gleichzeitig gespeichert. Bitte erneut synchronisieren.");
+  }catch(e){
+    cloudStatus("Cloud-Speichern fehlgeschlagen, die Browser-Kopie bleibt erhalten. "+(e.message||""));
+    return false;
+  }
+}
+async function initCloud(){
+  try{
+    const mod=await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm");
+    cloud.client=mod.createClient(SUPABASE_URL,SUPABASE_KEY);
+    const setUser=function(user){
+      if((cloud.user&&cloud.user.id)===(user&&user.id)) return;
+      cloud.user=user; cloud.changes=0;
+      $("cloudLogin").hidden=!!user; $("cloudSync").hidden=$("cloudLogout").hidden=!user;
+      if(user) cloudFlush(); else cloudStatus("Alles liegt nur lokal im Browser.");
+    };
+    /* Arbeit aus dem Auth-Callback herausziehen, sonst blockiert die Sperre des SDK. */
+    cloud.client.auth.onAuthStateChange(function(_e,session){
+      setTimeout(function(){setUser(session?session.user:null);},0);
+    });
+    const g=await cloud.client.auth.getSession();
+    if(g.error) throw g.error;
+    setUser(g.data.session?g.data.session.user:null);
+    $("cloudLogin").disabled=false;
+    $("cloudLogin").onclick=async function(){
+      cloudStatus("Google-Anmeldung wird geöffnet …");
+      const r=await cloud.client.auth.signInWithOAuth({provider:"google",
+        options:{redirectTo:location.origin+location.pathname}});
+      if(r.error) cloudStatus("Anmeldung fehlgeschlagen. "+r.error.message);
+    };
+    $("cloudSync").onclick=function(){cloudFlush();};
+    $("cloudLogout").onclick=async function(){
+      const ok=await cloudFlush();
+      if(!ok&&!confirm("Nicht alles ist in der Cloud. Die Browser-Kopie bleibt erhalten. Trotzdem abmelden?")) return;
+      await cloud.client.auth.signOut({scope:"local"});
+      setUser(null);
+    };
+    addEventListener("online",function(){cloudFlush();});
+    addEventListener("focus",function(){cloudFlush();});
+    document.addEventListener("visibilitychange",function(){
+      if(document.visibilityState==="hidden") cloudFlush();
+    });
+  }catch(e){
+    cloudStatus("Cloud nicht erreichbar, es wird nur im Browser gespeichert. "+(e.message||""));
+  }
+}
+
 /* ===================== Start ===================== */
 (function init(){
   migrateOld();
@@ -1480,6 +1604,7 @@ window.addEventListener("orientationchange",function(){setTimeout(fitSheets,150)
   ensureEmptyRow();
   refreshCustomers(); refreshArchive(); showCounters();
   render(); fitSheets();
+  initCloud();
 })();
 </script>
 </body>
