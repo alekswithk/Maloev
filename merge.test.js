@@ -18,4 +18,9 @@ assert.deepStrictEqual(m.counters,{offerte:26380,rjahr:2027,rn:1,qjahr:2026,qn:3
 // Einstellungen: neuere gewinnen
 m=mergeState(s({settings:{firma:"alt"},settingsAt:1}),s({settings:{firma:"neu"},settingsAt:2}));
 assert.strictEqual(m.settings.firma,"neu");
+// Zahlungen beider Geräte bleiben erhalten, gelöschte kommen nicht zurück; alte Stände ohne Felder gehen
+m=mergeState(s({payments:[{t:1,rnr:"A"},{t:2,rnr:"A"}],deleted:{"pay:2":5}}),s({payments:[{t:2,rnr:"A"},{t:3,rnr:"B"}]}));
+assert.deepStrictEqual(m.payments.map(p=>p.t).sort(),[1,3]);
+m=mergeState(s({articles:[{bez:"Tüte",preis:"0.2",t:1}]}),Object.assign({},base,{articles:undefined}));
+assert.strictEqual(m.articles.length,1);
 console.log("merge ok");

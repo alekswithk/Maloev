@@ -1,6 +1,7 @@
 /* Führt zwei Datenstände (Browser + Cloud) zusammen, ohne etwas zu verlieren.
    Archiv: pro Bezeichnung gewinnt der neuere Eintrag (id = Zeitstempel).
    Kunden: pro Firma gewinnt der neuere Eintrag (t = Zeitstempel).
+   Artikel: pro Bezeichnung der neuere. Zahlungen: jede einzeln (t = Zeitstempel).
    Gelöschtes: "deleted" merkt sich Löschzeitpunkte, damit ein anderes Gerät
    den Eintrag nicht zurückbringt. Nummern: immer der höhere Stand. */
 function mergeState(a,b){
@@ -17,6 +18,8 @@ function mergeState(a,b){
     customers:pick(a.customers,b.customers,"cust:",function(c){return c.k_firma;},function(c){return +c.t||0;}),
     archive:pick(a.archive,b.archive,"arc:",function(e){return e.label;},function(e){return +e.id||0;})
       .sort(function(x,y){return y.id-x.id;}),
+    articles:pick(a.articles||[],b.articles||[],"art:",function(x){return x.bez;},function(x){return +x.t||0;}),
+    payments:pick(a.payments||[],b.payments||[],"pay:",function(x){return String(x.t);},function(x){return +x.t||0;}),
     counters:mergeCounters(a.counters,b.counters), deleted:del};
 }
 function mergeCounters(a,b){
