@@ -1003,13 +1003,17 @@ function posTableHtml(ctx){
     '<thead><tr><th>Pos</th><th>Bezeichnung</th><th class="num">Menge</th>'+
     '<th class="num">Preis</th><th class="num">Betrag '+esc(ctx.cur)+'</th></tr></thead>';
 }
-function rowHtml(r,i){
+/* Pos, Bezeichnung, Menge, Preis, Betrag – als Text, für Vorschau und PDF. */
+function rowCells(r,i){
   let menge="";
-  if(r.menge!=null) menge=fmtNum(r.menge,Number.isInteger(r.menge)?0:2)+(r.einheit?" "+esc(r.einheit):"");
-  else if(r.einheit) menge=esc(r.einheit);
-  return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.bez)+'</td>'+
-    '<td class="num">'+menge+'</td><td class="num">'+(r.preis!=null?fmt2(r.preis):"")+'</td>'+
-    '<td class="num">'+(r.betrag!=null?fmt2(r.betrag):"")+'</td></tr>';
+  if(r.menge!=null) menge=fmtNum(r.menge,Number.isInteger(r.menge)?0:2)+(r.einheit?" "+r.einheit:"");
+  else if(r.einheit) menge=r.einheit;
+  return [String(i+1),r.bez||"",menge,r.preis!=null?fmt2(r.preis):"",r.betrag!=null?fmt2(r.betrag):""];
+}
+function rowHtml(r,i){
+  const x=rowCells(r,i).map(esc);
+  return '<tr><td class="num">'+x[0]+'</td><td>'+x[1]+'</td><td class="num">'+x[2]+'</td>'+
+    '<td class="num">'+x[3]+'</td><td class="num">'+x[4]+'</td></tr>';
 }
 function sumsTable(L,letzte){
   return '<div class="sums"><table class="sum"><tbody>'+
@@ -1018,6 +1022,9 @@ function sumsTable(L,letzte){
     '</tbody></table></div>';
 }
 function sumsHtml(ctx,kind){
+  const x=sumsRows(ctx,kind); return sumsTable(x.L,x.letzte);
+}
+function sumsRows(ctx,kind){
   const c=ctx.c, cur=ctx.cur, d=ctx.d, L=[];
   /* Die Quittung zeigt den Rechnungsbetrag und was davon bezahlt wurde. */
   if(kind==="quittung"){
@@ -1025,7 +1032,7 @@ function sumsHtml(ctx,kind){
     L.push(["MWST "+fmtNum(c.rate,1)+" %",fmtSigned(c.mwstBetrag,"+")]);
     if(Math.abs(c.rundung)>=0.005) L.push(["Rundung",fmtSigned(c.rundung)]);
     L.push(["Rechnungsbetrag inkl. MWST",fmt2(c.rgTotal)]);
-    return sumsTable(L,["Erhaltener Betrag "+cur,fmt2(c.erhalten)]);
+    return {L:L,letzte:["Erhaltener Betrag "+cur,fmt2(c.erhalten)]};
   }
   (kind==="rechnung"?c.linesR:c.linesQ).forEach(function(x){
     const l=x.l, own=String(l.label||"").trim();
@@ -1046,7 +1053,62 @@ function sumsHtml(ctx,kind){
   while(S.length&&S[S.length-1][3]) S.pop();
   const letzte=kind==="rechnung"?["Offener Betrag "+cur,fmt2(c.offen)]
                                 :["Total inkl. MWST "+cur,fmt2(c.brutto)];
-  return sumsTable(S,letzte);
+  return {L:S,letzte:letzte};
+}
+
+/* ===================== Textbausteine eines Belegs =====================
+   Eine Quelle für Vorschau (blockHtml) und PDF (pdfBlock).
+   r = Text mit **fett** und Zeilenumbrüchen. */
+function docBlocks(ctx,kind,mahn){
+  const set=ctx.set, d=ctx.d, lead=[], after=[];
+  if(d.betreff) lead.push({t:"subject",s:d.betreff});
+  if(kind==="offerte"){
+    if(d.k_anrede) lead.push({t:"p",r:d.k_anrede});
+    if(set.intro) lead.push({t:"p",r:fillPh(set.intro,ctx)});
+  }
+  if(mahn&&set.mahnung) lead.push({t:"p",r:fillPh(set.mahnung,ctx)});
+  if(kind==="quittung"&&set.quittung) lead.push({t:"p",r:fillPh(set.quittung,ctx)});
+
+  if(kind==="offerte"){
+    /* "Gültig bis" steht bereits im Eckdaten-Block und wird hier nicht wiederholt. */
+    const zeilen=[];
+    if(d.lieferung) zeilen.push("Lieferung: "+d.lieferung);
+    if(d.p_kond) zeilen.push("Zahlungskonditionen: "+d.p_kond);
+    if(zeilen.length) after.push({t:"p",r:zeilen.join("\n")});
+    if(d.bemerkung) after.push({t:"p",r:d.bemerkung});
+    if(set.outro) after.push({t:"p",r:fillPh(set.outro,ctx)});
+    after.push({t:"p",r:"Freundliche Grüsse"});
+    /* Firmenname über der Unterschriftslinie, Funktion darunter. */
+    after.push({t:"sig",
+      l:{b:set.handel||set.firma,sub:set.inhaber||"",line:(set.gf?set.gf+", ":"")+"Geschäftsführer"},
+      r:{b:d.k_firma,sub:d.k_sign&&d.k_sign!==d.k_firma?d.k_sign:"",line:"Datum, Unterschrift"}});
+  }else if(kind==="quittung"){
+    after.push({t:"p",r:ctx.c.rest>0.004
+      ?"Es verbleibt ein offener Betrag von "+ctx.cur+" "+fmt2(ctx.c.rest)+"."
+      :"Die Rechnung"+(d.rnr?" Nr. "+d.rnr:"")+" ist damit vollständig beglichen."});
+    if(d.bemerkung) after.push({t:"p",r:d.bemerkung});
+    if(set.dank) after.push({t:"p",r:fillPh(set.dank,ctx)});
+  }else{
+    if(set.zahlung) after.push({t:"p",r:fillPh(set.zahlung,ctx)});
+    if(ctx.infoLines.length) after.push({t:"ul",items:ctx.infoLines.map(function(l){return fillPh(l,ctx);})});
+    if(d.bemerkung) after.push({t:"p",r:d.bemerkung});
+    if(set.dank) after.push({t:"p",r:fillPh(set.dank,ctx)});
+  }
+  /* Die Offerte trägt die Grussformel bereits im Unterschriftsblock. */
+  if(kind!=="offerte") after.push({t:"closing",b:set.handel||set.firma,sub:set.inhaber||""});
+  return {lead:lead,after:after};
+}
+function blockHtml(b){
+  if(b.t==="subject") return '<div class="subject">'+esc(b.s)+'</div>';
+  if(b.t==="p") return '<p class="tx">'+rich(b.r)+'</p>';
+  if(b.t==="ul") return '<ul class="tx">'+b.items.map(function(l){return '<li>'+rich(l)+'</li>';}).join("")+'</ul>';
+  if(b.t==="sig") return '<div class="sig">'+
+    '<div class="col"><span class="b">'+esc(b.l.b)+'</span>'+(b.l.sub?'<br>'+esc(b.l.sub):'')+
+      '<div class="line">'+esc(b.l.line)+'</div></div>'+
+    '<div class="col right"><span class="b">'+esc(b.r.b)+'</span><br>'+(b.r.sub?esc(b.r.sub):'&nbsp;')+
+      '<div class="line">'+esc(b.r.line)+'</div></div></div>';
+  return '<div class="closing">Freundliche Grüsse<br><br><span class="b">'+esc(b.b)+'</span>'+
+    (b.sub?'<br>'+esc(b.sub):'')+'</div>';
 }
 
 /* ===================== Blätter zusammensetzen ===================== */
@@ -1058,54 +1120,10 @@ function buildDoc(host,ctx,kind){
           :kind==="quittung"?(d.qnr?"Nr. "+d.qnr:"")
           :(d.rnr?"Nr. "+d.rnr:"");
 
-  let lead="";
-  if(d.betreff) lead+='<div class="subject">'+esc(d.betreff)+'</div>';
-  if(kind==="offerte"){
-    if(d.k_anrede) lead+='<p class="tx">'+esc(d.k_anrede)+'</p>';
-    if(set.intro) lead+='<p class="tx">'+rich(fillPh(set.intro,ctx))+'</p>';
-  }
-  if(mahn&&set.mahnung) lead+='<p class="tx">'+rich(fillPh(set.mahnung,ctx))+'</p>';
-  if(kind==="quittung"&&set.quittung) lead+='<p class="tx">'+rich(fillPh(set.quittung,ctx))+'</p>';
-
-  let tail=sumsHtml(ctx,kind)+'<div class="after">';
-  if(kind==="offerte"){
-    /* "Gültig bis" steht bereits im Eckdaten-Block und wird hier nicht wiederholt. */
-    const zeilen=[];
-    if(d.lieferung) zeilen.push("Lieferung: "+d.lieferung);
-    if(d.p_kond) zeilen.push("Zahlungskonditionen: "+d.p_kond);
-    if(zeilen.length) tail+='<p class="tx">'+zeilen.map(esc).join("<br>")+'</p>';
-    if(d.bemerkung) tail+='<p class="tx">'+rich(d.bemerkung)+'</p>';
-    if(set.outro) tail+='<p class="tx">'+rich(fillPh(set.outro,ctx))+'</p>';
-    tail+='<p class="tx">Freundliche Grüsse</p>';
-    /* Firmenname über der Unterschriftslinie, Funktion darunter –
-       ersetzt die früher doppelt gesetzte Grussformel. */
-    tail+='<div class="sig">'+
-      '<div class="col"><span class="b">'+esc(set.handel||set.firma)+'</span>'+
-        (set.inhaber?'<br>'+esc(set.inhaber):'')+
-        '<div class="line">'+esc(set.gf)+(set.gf?', ':'')+'Geschäftsführer</div></div>'+
-      '<div class="col right"><span class="b">'+esc(d.k_firma)+'</span>'+
-        (d.k_sign&&d.k_sign!==d.k_firma?'<br>'+esc(d.k_sign):'<br>&nbsp;')+
-        '<div class="line">Datum, Unterschrift</div></div>'+
-      '</div>';
-  }else if(kind==="quittung"){
-    tail+='<p class="tx">'+(ctx.c.rest>0.004
-      ? "Es verbleibt ein offener Betrag von "+esc(ctx.cur)+" "+fmt2(ctx.c.rest)+"."
-      : "Die Rechnung"+(d.rnr?" Nr. "+esc(d.rnr):"")+" ist damit vollständig beglichen.")+'</p>';
-    if(d.bemerkung) tail+='<p class="tx">'+rich(d.bemerkung)+'</p>';
-    if(set.dank) tail+='<p class="tx">'+rich(fillPh(set.dank,ctx))+'</p>';
-  }else{
-    if(set.zahlung) tail+='<p class="tx">'+rich(fillPh(set.zahlung,ctx))+'</p>';
-    if(ctx.infoLines.length) tail+='<ul class="tx">'+ctx.infoLines.map(function(l){
-      return '<li>'+rich(fillPh(l,ctx))+'</li>';}).join("")+'</ul>';
-    if(d.bemerkung) tail+='<p class="tx">'+rich(d.bemerkung)+'</p>';
-    if(set.dank) tail+='<p class="tx">'+rich(fillPh(set.dank,ctx))+'</p>';
-  }
-  /* Die Offerte trägt die Grussformel bereits im Unterschriftsblock. */
-  if(kind!=="offerte"){
-    tail+='<div class="closing">Freundliche Grüsse<br><br><span class="b">'+
-      esc(set.handel||set.firma)+'</span>'+(set.inhaber?'<br>'+esc(set.inhaber):'')+'</div>';
-  }
-  tail+='</div>';
+  const parts=docBlocks(ctx,kind,mahn);
+  outDocs[kind]={ctx:ctx,kind:kind,titel:titel,nr:nr,parts:parts};
+  const lead=parts.lead.map(blockHtml).join("");
+  const tail=sumsHtml(ctx,kind)+'<div class="after">'+parts.after.map(blockHtml).join("")+'</div>';
 
   /* Die Quittung verweist auf die Rechnung und listet die Positionen nicht auf. */
   const mitTabelle=kind!=="quittung";
@@ -1215,6 +1233,7 @@ function render(){
   const d=readDoc();
   const c=compute(d);
   const cur=set.waehrung||"CHF";
+  outDocs={}; outQr=null;
   const mahn=parseInt(d.mahnstufe,10)||0;
   const faelligRg=addDays(d.rdatum,parseInt(d.frist,10));
   /* Eine Mahnung setzt eine neue, kurze Frist ab dem Mahndatum. */
@@ -1274,6 +1293,7 @@ function render(){
   if(showQr){
     const img=$("qrImg");
     if(img.getAttribute("src")!==qrSrc) img.src=qrSrc;
+    outQr=qrData?{img:qrData}:{svg:qrCache.svg};
     img.onload=function(){
       $("pgQr").classList.toggle("bottom",img.naturalHeight/img.naturalWidth<0.75);
     };
@@ -1384,7 +1404,7 @@ function qrBill(d,set,c){
   if(key===qrCache.key) return qrCache;
   try{
     const svg=new qrLib.SwissQRBill(data,{language:"DE"}).toString();
-    qrCache={key:key,url:"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg),err:""};
+    qrCache={key:key,svg:svg,url:"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg),err:""};
   }catch(e){qrCache={key:key,url:"",err:"QR-Zahlteil nicht möglich: "+e.message};}
   return qrCache;
 }
@@ -1820,37 +1840,143 @@ function loadScript(src){
     document.head.appendChild(s);
   });
 }
-/* Die A4-Blätter werden als Bild (ca. 280 dpi) in ein PDF gesetzt.
-   ponytail: Rasterbild statt Vektor-PDF – Text im PDF ist nicht markierbar;
-   für echten Text müsste das Layout mit pdf-lib nachgebaut werden. */
+/* ===================== PDF (pdfmake, echter Text) =====================
+   Baut das PDF aus denselben Daten wie die Vorschau: docBlocks, rowCells,
+   sumsRows. Schrift: Helvetica (PDF-Standardschrift, kein Download nötig).
+   ponytail: Standardschrift kennt nur westeuropäische Zeichen (WinAnsi);
+   für z. B. ć/ł eine TTF in pdfMake.vfs einbetten. */
+let outDocs={}, outQr=null;
+const MM=72/25.4;
+const NB={hLineWidth:function(){return 0;},vLineWidth:function(){return 0;},
+  paddingLeft:function(){return 0;},paddingRight:function(){return 0;},
+  paddingTop:function(){return 0;},paddingBottom:function(){return 0;}};
+function runs(r){
+  const out=[];
+  String(r||"").split(/\*\*(.+?)\*\*/).forEach(function(part,i){
+    if(part) out.push(i%2?{text:part,bold:true}:part);
+  });
+  return out;
+}
+function hline(w,lw,color){return {canvas:[{type:"line",x1:0,y1:0,x2:w,y2:0,lineWidth:lw,lineColor:color||"#000"}]};}
+function pdfBlock(b){
+  if(b.t==="subject") return {text:b.s,bold:true,fontSize:11.5,margin:[0,0,0,4*MM]};
+  if(b.t==="p") return {text:runs(b.r),margin:[0,0,0,3*MM]};
+  if(b.t==="ul") return {ul:b.items.map(function(l){return {text:runs(l)};}),margin:[0,0,0,3*MM]};
+  if(b.t==="sig"){
+    const col=function(x,align){return {alignment:align,stack:[{text:x.b||" ",bold:true},{text:x.sub||" "},
+      {canvas:[{type:"line",x1:0,y1:14*MM,x2:78*MM,y2:14*MM,lineWidth:0.5}]},
+      {text:x.line,fontSize:8,color:"#333",margin:[0,1.2*MM,0,0]}]};};
+    return {columns:[col(b.l,"left"),col(b.r,"right")],columnGap:14*MM,fontSize:9.5,
+      margin:[0,5*MM,0,0],unbreakable:true};
+  }
+  return {text:["Freundliche Grüsse\n\n",{text:b.b||"",bold:true},b.sub?"\n"+b.sub:""],
+    fontSize:9.5,margin:[0,6*MM,0,0],unbreakable:true};
+}
+function pdfHead(o){
+  const set=o.ctx.set, d=o.ctx.d;
+  const left={stack:[
+    {text:[set.handel||set.firma,set.strasse,set.ort].filter(Boolean).join(" · "),fontSize:7,color:"#333"},
+    {canvas:[{type:"line",x1:0,y1:0.8*MM,x2:85*MM,y2:0.8*MM,lineWidth:0.4,lineColor:"#999"}]},
+    {margin:[0,4.5*MM,0,0],fontSize:10.5,lineHeight:1.12,
+      text:[{text:(d.k_firma||"")+"\n",bold:true},(d.k_strasse?d.k_strasse+"\n":""),d.k_ort||""]}]};
+  const meta={margin:[0,5.5*MM,0,3*MM],fontSize:9,table:{widths:["auto","*"],
+    body:o.ctx.meta.map(function(m){return [{text:m[0],color:"#333",noWrap:true,margin:[0,0,4*MM,0]},
+      {text:String(m[1]),alignment:"right"}];})},
+    layout:Object.assign({},NB,{paddingTop:function(){return 0.75*MM;},paddingBottom:function(){return 0.75*MM;}})};
+  /* Kopf wie in der Vorschau: Logo/Titel, ab 22 mm Absender + Adressfenster links,
+     Eckdaten rechts; mindestens 60 mm hoch, mehr Eckdaten schieben den Text nach unten. */
+  return {margin:[0,-26*MM,0,0],stack:[
+    {columns:[{image:LOGO,fit:[70*MM,17*MM]},
+      {width:"auto",stack:[{text:o.titel,fontSize:19,bold:true,alignment:"right"},
+        {text:o.nr,fontSize:9,color:"#333",alignment:"right",margin:[0,1*MM,0,0]}]}]},
+    {margin:[0,5*MM,0,0],layout:NB,table:{widths:[85*MM,"*",72*MM],heights:[38*MM-5*MM],
+      body:[[left,"",meta]]}}]};
+}
+function pdfContHead(o){
+  return {margin:[20*MM,18*MM,20*MM,0],columns:[{image:LOGO,fit:[60*MM,13*MM]},
+    {width:"auto",stack:[{text:o.titel,fontSize:12,bold:true,alignment:"right"},
+      {text:(o.nr?o.nr+" · ":"")+"Fortsetzung",fontSize:9,color:"#333",alignment:"right",margin:[0,1*MM,0,0]}]}]};
+}
+function pdfFoot(set){
+  const teile=[set.handel||set.firma,[set.strasse,set.ort].filter(Boolean).join(" · "),set.mail,set.tel]
+    .filter(Boolean).join(" · ");
+  const bank=[set.uid?"UID "+set.uid:"",set.iban?"IBAN "+set.iban:""].filter(Boolean).join(" · ");
+  return function(page,count){
+    return {margin:[20*MM,0,20*MM,0],stack:[hline(170*MM,0.5),
+      {margin:[0,1.6*MM,0,0],fontSize:7,color:"#222",columns:[{text:teile+(bank?"\n"+bank:"")},
+        {width:"auto",text:count>1?"Seite "+page+" von "+count:""}]}]};
+  };
+}
+function pdfSection(o){
+  const c=o.ctx.c, content=[pdfHead(o)].concat(o.parts.lead.map(pdfBlock));
+  if(o.kind!=="quittung"){
+    const th=function(t,right){return {text:t,bold:true,fontSize:8.5,alignment:right?"right":"left"};};
+    content.push({fontSize:9.5,table:{headerRows:1,dontBreakRows:true,widths:["8%","*","15%","15%","18%"],
+      body:[[th("Pos",true),th("Bezeichnung"),th("Menge",true),th("Preis",true),th("Betrag "+o.ctx.cur,true)]]
+        .concat(c.rows.map(function(r,i){
+          const x=rowCells(r,i);
+          return [{text:x[0],alignment:"right"},x[1],{text:x[2],alignment:"right"},
+                  {text:x[3],alignment:"right"},{text:x[4],alignment:"right"}];}))},
+      layout:{hLineWidth:function(i){return i<=1?0.9:0.3;},
+        hLineColor:function(i){return i<=1?"#000":"#c4c4c4";},vLineWidth:function(){return 0;},
+        paddingLeft:function(){return 1.6*MM;},paddingRight:function(){return 1.6*MM;},
+        paddingTop:function(){return 1.7*MM;},paddingBottom:function(){return 1.7*MM;}}});
+  }
+  const sd=sumsRows(o.ctx,o.kind), n=sd.L.length;
+  content.push({margin:[0,5*MM,0,0],unbreakable:true,columns:[{width:"*",text:""},{width:80*MM,stack:[
+    {fontSize:9.5,table:{widths:["*","auto"],body:sd.L.map(function(x){
+        return [x[0],{text:x[1],alignment:"right"}];}).concat([[
+        {text:sd.letzte[0],bold:true,fontSize:11},{text:sd.letzte[1],bold:true,fontSize:11,alignment:"right"}]])},
+      layout:Object.assign({},NB,{hLineWidth:function(i,node){return i===n?0.9:i===node.table.body.length?0.8:0;},
+        paddingTop:function(i){return i===n?1.7*MM:1.25*MM;},paddingBottom:function(i){return i===n?1.7*MM:1.25*MM;}})},
+    {canvas:[{type:"line",x1:0,y1:1.3,x2:80*MM,y2:1.3,lineWidth:0.8}]}]}]});
+  content.push({margin:[0,6*MM,0,0],stack:o.parts.after.map(pdfBlock)});
+  /* Fortsetzungskopf ab der zweiten Seite des Belegs */
+  let first=null;
+  return {section:content,pageSize:"A4",pageMargins:[20*MM,44*MM,20*MM,25*MM],
+    header:function(page){if(first===null) first=page; return page===first?null:pdfContHead(o);},
+    footer:pdfFoot(o.ctx.set)};
+}
+function pdfQrSection(q){
+  if(q.svg){
+    /* Der SVG-Renderer von pdfmake kennt keine mm/pt-Einheiten: alles in px (96 dpi)
+       umrechnen und per viewBox auf 210 × 105 mm skalieren. */
+    const px=96/25.4;
+    const svg=q.svg.replace(/(-?\d*\.?\d+)(mm|pt|px)\b/g,function(m,n,u){
+      return String(+n*(u==="mm"?px:u==="pt"?96/72:1));})
+      .replace(/^<svg ([^>]*?)width="[^"]*" height="[^"]*"/,
+        '<svg $1width="'+210*MM+'" height="'+105*MM+'" viewBox="0 0 '+210*px+' '+105*px+'"');
+    return {section:[{svg:svg,width:210*MM,height:105*MM}],pageSize:"A4",pageMargins:[0,192*MM,0,0]};
+  }
+  const img=$("qrImg"), ratio=img.naturalWidth?img.naturalHeight/img.naturalWidth:1.414;
+  const top=ratio<0.75?297-210*ratio:0;
+  return {section:[{image:q.img,width:210*MM}],pageSize:"A4",pageMargins:[0,top*MM,0,0]};
+}
+function pdfDefinition(){
+  const secs=["offerte","rechnung","quittung"].filter(function(k){return outDocs[k];})
+    .map(function(k){return pdfSection(outDocs[k]);});
+  if(outQr&&(outQr.svg||outQr.img)) secs.push(pdfQrSection(outQr));
+  return {pageSize:"A4",content:secs,info:{title:printName(),author:readSettings().firma||""},
+    defaultStyle:{font:"Helvetica",fontSize:10,lineHeight:1.2}};
+}
+async function loadPdfMake(){
+  if(!window.pdfMake) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.12/pdfmake.min.js");
+  if(!window.pdfMakeFontsLoaded){
+    await loadScript("https://cdn.jsdelivr.net/npm/pdfmake@0.3.12/build/standard-fonts/Helvetica.js");
+    window.pdfMakeFontsLoaded=true;
+  }
+}
 $("btnPdf").onclick=async function(){
   if(!prepareOutput()) return;
   const btn=this, label=btn.textContent;
   btn.disabled=true; btn.textContent="PDF wird erstellt …";
-  const wasPreview=document.body.classList.contains("show-preview");
   try{
-    await Promise.all([
-      window.html2canvas||loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),
-      window.jspdf||loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")]);
-    /* Auf dem Handy sind die Blätter verkleinert oder ausgeblendet – für die Aufnahme in Originalgrösse. */
-    document.body.classList.add("show-preview");
-    document.documentElement.style.setProperty("--mscale","1");
-    if(document.fonts&&document.fonts.ready) await document.fonts.ready;
-    const sheets=Array.from(document.querySelectorAll("#previewWrap .sheet"))
-      .filter(function(sh){return !sh.classList.contains("off");});
-    const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",compress:true});
-    for(let i=0;i<sheets.length;i++){
-      const cv=await window.html2canvas(sheets[i],{scale:3,backgroundColor:"#ffffff",logging:false,
-        onclone:function(doc,el){el.style.boxShadow="none";el.style.margin="0";el.style.transform="none";}});
-      if(i) pdf.addPage();
-      pdf.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297,undefined,"FAST");
-    }
-    pdf.save(printName()+".pdf");
+    await loadPdfMake();
+    render();   /* outDocs auf den aktuellen Stand bringen */
+    await pdfMake.createPdf(pdfDefinition()).download(printName()+".pdf");
   }catch(e){
     alert("PDF konnte nicht erstellt werden: "+(e.message||e)+"\nAlternative: Drucker-Symbol → „Als PDF sichern\".");
   }finally{
-    document.body.classList.toggle("show-preview",wasPreview);
-    fitSheets();
     btn.disabled=false; btn.textContent=label;
   }
 };

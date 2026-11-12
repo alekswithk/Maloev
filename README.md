@@ -30,8 +30,8 @@ einmalig unter **⚙ Einstellungen**.
 
 Zum Schluss **PDF herunterladen** – das PDF wird direkt gespeichert, der Dateiname
 ist gesetzt, z. B. `Rechnung_RE-2026-02_Nordex 2 GmbH.pdf`. Das Drucker-Symbol daneben
-öffnet den Druckdialog. Das PDF besteht aus Seitenbildern (Text nicht markierbar);
-wer markierbaren Text braucht, wählt im Druckdialog „Als PDF sichern".
+öffnet den Druckdialog. Das PDF wird mit pdfmake direkt aus den Belegdaten gebaut:
+echter, durchsuchbarer Text in Helvetica, QR-Zahlteil als Vektorgrafik, rund 100 KB.
 
 Gespeicherte Kunden stehen im Abschnitt **Kunden** (suchen, übernehmen, löschen),
 gemerkte Positionen unter **Artikel** – die Bezeichnung schlägt sie vor und übernimmt
