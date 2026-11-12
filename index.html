@@ -44,6 +44,11 @@
   .custrow .ci{flex:1;min-width:0;font-size:12.5px;line-height:1.35}
   .custrow .ci span{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* Ausgabe */
+  .custrow .st-err{color:var(--err)} .custrow .st-warn{color:var(--warn)} .custrow .st-ok{color:var(--ok)}
+  .payform{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;padding:6px 0 10px}
+  .payform>div{flex:1;min-width:110px}
+  .paylist{font-size:11.5px;color:var(--muted);padding:0 0 8px}
+  .paylist button{border:0;background:none;color:var(--err);cursor:pointer;padding:0 4px}
   .btn.big{font-size:15px;font-weight:600;padding:11px 14px}
   .btn.icon{flex:none;display:inline-flex;align-items:center;justify-content:center;padding:8px 12px}
   .btn:disabled{opacity:.6;cursor:wait}
@@ -265,6 +270,7 @@
         <input id="d_k_firma" list="custList" autocomplete="off"
                placeholder="Name eintippen – gespeicherte Kunden werden vorgeschlagen">
         <datalist id="custList"></datalist>
+        <datalist id="artList"></datalist>
         <div class="row">
           <div><label>Strasse</label><input id="d_k_strasse"></div>
           <div><label>PLZ / Ort <span style="color:var(--err)">*</span></label><input id="d_k_ort"></div>
@@ -342,6 +348,12 @@
         <p class="inline"><input type="checkbox" id="d_referenz_auto" checked>
           <label for="d_referenz_auto">Referenz automatisch aus der Offerte-Nr.</label></p>
         <div class="calc" id="calcFaellig"></div>
+        <div class="row">
+          <div><label>Mahnstufe</label><select id="d_mahnstufe">
+            <option value="0">keine – normale Rechnung</option><option value="1">Zahlungserinnerung</option>
+            <option value="2">1. Mahnung</option><option value="3">2. Mahnung</option></select></div>
+          <div><label>Mahndatum</label><input id="d_mdatum" type="date"></div>
+        </div>
 
         <div class="subh">Quittung</div>
         <div class="row">
@@ -441,6 +453,19 @@
     </details>
 
     <!-- ---------- Einstellungen ---------- -->
+    <details class="acc settings" id="accInv">
+      <summary><span class="step"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 2.5h8.5L19 7v14.5H6z"/><path d="M9.5 12h6M9.5 16h6"/></svg></span>
+        <span class="ttl">Rechnungen &amp; Zahlungen</span><span class="rsum" id="sumInv"></span><span class="chev">›</span></summary>
+      <div class="inner">
+        <div class="seg tabs" id="invFilter">
+          <button data-f="open" class="active">Offen</button><button data-f="all">Alle</button>
+        </div>
+        <div id="invTable"></div>
+        <p class="hint">Hier erscheint jede gedruckte oder heruntergeladene Rechnung. Zahlung erfassen,
+          daraus eine Quittung erstellen oder eine Mahnung schreiben.</p>
+      </div>
+    </details>
+
     <details class="acc settings" id="accCust">
       <summary><span class="step"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2.2" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.6 3.2-5.5 6.5-5.5s5.8 1.9 6.5 5.5M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.8c1.8.6 3 2.4 3.5 5.2"/></svg></span>
@@ -450,6 +475,17 @@
         <div id="custTable"></div>
         <p class="hint">Neue Kunden unter 1 Kunde erfassen und „Kunde merken" – oder einfach drucken,
           dann wird der Kunde automatisch gemerkt.</p>
+      </div>
+    </details>
+
+    <details class="acc settings" id="accArt">
+      <summary><span class="step"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg></span>
+        <span class="ttl">Artikel</span><span class="rsum" id="sumArt"></span><span class="chev">›</span></summary>
+      <div class="inner">
+        <input id="artSearch" type="search" placeholder="Artikel suchen …" aria-label="Artikel suchen">
+        <div id="artTable"></div>
+        <p class="hint">Positionen mit Preis werden beim Drucken oder Herunterladen gemerkt. In den
+          Positionen schlägt die Bezeichnung gemerkte Artikel vor und übernimmt Einheit und Preis.</p>
       </div>
     </details>
 
@@ -498,6 +534,10 @@
           <div><label>Nächste Rechnung (lfd. Zahl)</label><input id="s_next_r" type="number" min="1"></div>
           <div><label>Nächste Quittung (lfd. Zahl)</label><input id="s_next_q" type="number" min="1"></div>
         </div>
+        <div class="row">
+          <div><label>Frist bei Mahnungen (Tage)</label><input id="s_mahnfrist" type="number" min="0"></div>
+          <div><label>Mahngebühr ab 1. Mahnung</label><input id="s_mahngebuehr" type="number" step="0.01" min="0"></div>
+        </div>
 
         <div class="subh">Standardtexte</div>
         <p class="hint" style="margin-top:4px">Platzhalter: <code>{total}</code>, <code>{faellig}</code>,
@@ -509,6 +549,7 @@
         <label>Schlusssatz der Offerte</label><textarea id="s_outro" rows="2"></textarea>
         <label>Zahlungshinweis der Rechnung</label><textarea id="s_zahlung" rows="2"></textarea>
         <label>Bestätigungstext der Quittung</label><textarea id="s_quittung" rows="2"></textarea>
+        <label>Text der Mahnung (über den Positionen)</label><textarea id="s_mahnung" rows="3"></textarea>
         <label>Dankestext der Rechnung und Quittung</label><textarea id="s_dank" rows="2"></textarea>
 
         <div class="subh">Daten sichern</div>
@@ -555,9 +596,10 @@ const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAjAAAADWCAIAAABAES+O
 const K_SET="maloev_settings_v1", K_DOC="maloev_doc_v1",
       K_CUST="maloev_customers_v1", K_ARC="maloev_archive_v1",
       K_CNT="maloev_counters_v1", K_OLD="maloev_state_v2",
-      K_DEL="maloev_deleted_v1", K_SETAT="maloev_settings_at_v1";
+      K_DEL="maloev_deleted_v1", K_SETAT="maloev_settings_at_v1",
+      K_ART="maloev_articles_v1", K_PAY="maloev_payments_v1";
 /* Diese Schlüssel werden mit der Cloud abgeglichen (nicht das offene Dokument). */
-const SYNC_KEYS=[K_SET,K_CUST,K_ARC,K_CNT,K_DEL];
+const SYNC_KEYS=[K_SET,K_CUST,K_ARC,K_CNT,K_DEL,K_ART,K_PAY];
 const SUPABASE_URL="https://rnxppfstwqdomtegogqw.supabase.co",
       SUPABASE_KEY="sb_publishable_sFCVnly_tpDl723juuKORg_FxVQ6X8o"; /* öffentlich, kein Geheimnis */
 
@@ -574,6 +616,8 @@ const SET_DEFAULTS={
   outro:"Es würde uns freuen, diesen Auftrag für Sie auszuführen.",
   zahlung:"Bitte begleichen Sie den Betrag von **{total}** bis zum **{faellig}** auf das unten aufgeführte Konto.",
   quittung:"Hiermit bestätigen wir, von **{kunde}** am **{zahldatum}** den nachstehenden Betrag dankend erhalten zu haben.",
+  mahnfrist:"10", mahngebuehr:"20",
+  mahnung:"Leider haben wir für unsere Rechnung Nr. **{nr}** vom {rdatum} bis heute keinen Zahlungseingang feststellen können. Sicher handelt es sich um ein Versehen.",
   dank:"Wir bedanken uns herzlich für Ihren Auftrag und das entgegengebrachte Vertrauen. Bei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung."
 };
 
@@ -585,7 +629,7 @@ const DOC_DEFAULTS={
   p_pct:"50", p_frist1:"5 Werktagen", p_frist2:"30 Tagen", p_kond:"",
   info:"", gueltig_auto:true, referenz_auto:true, info_auto:true, runden:true, qbetrag_auto:true,
   items:[{bez:"",menge:"",einheit:"",preis:"",betrag:"",fix:false}],
-  qr:null, qrName:"", sums:null, qr_auto:true
+  qr:null, qrName:"", sums:null, qr_auto:true, mahnstufe:"0", mdatum:""
 };
 /* Summenblock: Zeilen werden der Reihe nach verrechnet.
    sub = Zwischentotal, rabatt/akonto = Felder oben, extra = eigener Abzug/Zuschlag. */
@@ -593,11 +637,11 @@ const SUMS_DEFAULT=[{t:"sub"},{t:"rabatt"},{t:"sub"},{t:"mwst"},{t:"sub"},{t:"ak
 
 const SET_IDS=["firma","handel","inhaber","strasse","ort","uid","kontakt","gf","mail","tel",
   "bank","iban","mwst","frist","gueltig_m","waehrung","intro","kond","outro","zahlung",
-  "quittung","dank"];
+  "quittung","dank","mahnfrist","mahngebuehr","mahnung"];
 const DOC_TEXT_IDS=["typ","onr","rnr","qnr","betreff","odatum","gueltig","rdatum","ldatum",
   "zdatum","frist","referenz","mwst","lieferung","bemerkung","k_firma","k_strasse","k_ort",
   "k_uid","k_anrede","k_sign","rab_label","rab_wert","rab_typ","akonto","akonto_datum",
-  "qbetrag","p_pct","p_frist1","p_frist2","p_kond","info"];
+  "qbetrag","p_pct","p_frist1","p_frist2","p_kond","info","mahnstufe","mdatum"];
 const DOC_CHECK_IDS=["gueltig_auto","referenz_auto","info_auto","runden","qbetrag_auto","qr_auto"];
 
 let qrData=null, qrName="", sumsData=JSON.parse(JSON.stringify(SUMS_DEFAULT));
@@ -717,6 +761,7 @@ function readDoc(){
   return d;
 }
 function applyDoc(d){
+  d=Object.assign({},DOC_DEFAULTS,d);   /* fehlende Felder älterer Belege = Vorgabe */
   DOC_TEXT_IDS.forEach(id=>{const el=$("d_"+id); if(el&&d[id]!=null) el.value=d[id];});
   DOC_CHECK_IDS.forEach(id=>{const el=$("d_"+id); if(el&&d[id]!=null) el.checked=!!d[id];});
   setType(d.typ||"beides",true);
@@ -783,7 +828,7 @@ function addItemRow(data){
   tr.className="itemrow";
   tr.dataset.fix=data.fix?"1":"0";
   tr.innerHTML=
-    '<td data-lbl="Bezeichnung"><input class="f-bez" value="'+esc(data.bez||"")+'"></td>'+
+    '<td data-lbl="Bezeichnung"><input class="f-bez" list="artList" value="'+esc(data.bez||"")+'"></td>'+
     '<td data-lbl="Menge"><input class="f-menge" value="'+esc(data.menge||"")+'"></td>'+
     '<td data-lbl="Einheit"><input class="f-einheit" value="'+esc(data.einheit||"")+'" placeholder="Stk"></td>'+
     '<td data-lbl="Preis"><input class="f-preis" value="'+esc(data.preis||"")+'"></td>'+
@@ -797,6 +842,12 @@ function addItemRow(data){
   tr.querySelector(".del").onclick=()=>{tr.remove();ensureEmptyRow();render();};
   tr.querySelector(".up").onclick=()=>{const p=tr.previousElementSibling;if(p)tr.parentNode.insertBefore(tr,p);render();};
   tr.querySelector(".down").onclick=()=>{const n=tr.nextElementSibling;if(n)tr.parentNode.insertBefore(n,tr);render();};
+  /* Gespeicherten Artikel gewählt → Einheit und Preis übernehmen, sofern noch leer. */
+  tr.querySelector(".f-bez").addEventListener("input",function(){
+    const a=articles().find(x=>x.bez===this.value); if(!a) return;
+    if(!tr.querySelector(".f-einheit").value) tr.querySelector(".f-einheit").value=a.einheit||"";
+    if(!tr.querySelector(".f-preis").value) tr.querySelector(".f-preis").value=a.preis||"";
+  });
   tr.querySelectorAll(".f-bez,.f-menge,.f-einheit,.f-preis").forEach(i=>
     i.addEventListener("input",()=>{ensureEmptyRow();renderSoon();}));
   $("itemBody").appendChild(tr);
@@ -900,6 +951,7 @@ function fillPh(txt,ctx){
     .replace(/\{nr\}/g,ctx.nr||"")
     .replace(/\{qrseite\}/g,ctx.qrPage||"")
     .replace(/\{zahldatum\}/g,ddmmyyyy(ctx.d.zdatum)||"…")
+    .replace(/\{rdatum\}/g,ddmmyyyy(ctx.d.rdatum)||"…")
     .replace(/\{erhalten\}/g,ctx.cur+" "+fmt2(ctx.c.erhalten));
 }
 function autoInfo(ctx){
@@ -1000,7 +1052,8 @@ function sumsHtml(ctx,kind){
 /* ===================== Blätter zusammensetzen ===================== */
 function buildDoc(host,ctx,kind){
   const set=ctx.set, d=ctx.d;
-  const titel=kind==="offerte"?"Offerte":kind==="quittung"?"Quittung":"Rechnung";
+  const mahn=kind==="rechnung"?parseInt(d.mahnstufe,10)||0:0;
+  const titel=kind==="offerte"?"Offerte":kind==="quittung"?"Quittung":mahn?MAHN_TITEL[mahn]:"Rechnung";
   const nr=kind==="offerte"?(d.onr?"Nr. "+d.onr:"")
           :kind==="quittung"?(d.qnr?"Nr. "+d.qnr:"")
           :(d.rnr?"Nr. "+d.rnr:"");
@@ -1011,6 +1064,7 @@ function buildDoc(host,ctx,kind){
     if(d.k_anrede) lead+='<p class="tx">'+esc(d.k_anrede)+'</p>';
     if(set.intro) lead+='<p class="tx">'+rich(fillPh(set.intro,ctx))+'</p>';
   }
+  if(mahn&&set.mahnung) lead+='<p class="tx">'+rich(fillPh(set.mahnung,ctx))+'</p>';
   if(kind==="quittung"&&set.quittung) lead+='<p class="tx">'+rich(fillPh(set.quittung,ctx))+'</p>';
 
   let tail=sumsHtml(ctx,kind)+'<div class="after">';
@@ -1127,6 +1181,7 @@ function validate(d,set,c){
   if(wantR&&!d.rdatum) E.push("Rechnungsdatum fehlt");
   if(wantQ&&!String(d.onr||"").trim()) W.push("Offerte-Nr. fehlt");
   if(wantR&&!String(d.rnr||"").trim()) W.push("Rechnungs-Nr. fehlt");
+  if(wantR&&d.mahnstufe!=="0"&&d.mahnstufe&&!d.mdatum) W.push("Mahndatum fehlt");
   if(wantR&&d.qr_auto&&!qrData&&qrLib&&c.offen>0){const g=qrBill(d,set,c); if(g.err) W.push(g.err);}
   if(wantQ&&d.gueltig&&d.odatum&&d.gueltig<d.odatum) E.push("Gültig-bis liegt vor dem Offertdatum");
   if(wantR&&d.ldatum&&d.rdatum&&d.ldatum>d.rdatum) W.push("Leistungsdatum liegt nach dem Rechnungsdatum");
@@ -1160,7 +1215,10 @@ function render(){
   const d=readDoc();
   const c=compute(d);
   const cur=set.waehrung||"CHF";
-  const faellig=addDays(d.rdatum,parseInt(d.frist,10));
+  const mahn=parseInt(d.mahnstufe,10)||0;
+  const faelligRg=addDays(d.rdatum,parseInt(d.frist,10));
+  /* Eine Mahnung setzt eine neue, kurze Frist ab dem Mahndatum. */
+  const faellig=mahn?addDays(d.mdatum||todayISO(),parseInt(set.mahnfrist,10)||10):faelligRg;
   const typ=d.typ||"beides";
   const showU=typ==="quittung";
   const showQ=!showU&&typ!=="rechnung", showR=!showU&&typ!=="offerte";
@@ -1183,8 +1241,11 @@ function render(){
   /* ---- Rechnung ---- */
   if(showR){
     const ctxR={d:d,set:set,c:c,cur:cur,faellig:faellig,qrPage:null,infoLines:[],nr:d.rnr,
-      meta:[["Rechnungsdatum",ddmmyyyy(d.rdatum)],["Leistungsdatum",ddmmyyyy(d.ldatum)],
-            ["Zahlbar bis",ddmmyyyy(faellig)],["Referenz",d.referenz],["MWST-Nr.",set.uid]]
+      meta:(mahn?[["Mahndatum",ddmmyyyy(d.mdatum)],["Rechnungsdatum",ddmmyyyy(d.rdatum)],
+                  ["Ursprünglich fällig",ddmmyyyy(faelligRg)],["Zahlbar bis",ddmmyyyy(faellig)]]
+                :[["Rechnungsdatum",ddmmyyyy(d.rdatum)],["Leistungsdatum",ddmmyyyy(d.ldatum)],
+                  ["Zahlbar bis",ddmmyyyy(faellig)]])
+            .concat([["Referenz",d.referenz],["MWST-Nr.",set.uid]])
            .filter(function(r){return String(r[1]||"").trim();})};
     const manuell=String(d.info||"").split("\n").filter(function(l){return l.trim();});
     ctxR.infoLines=d.info_auto?autoInfo(ctxR):manuell;
@@ -1462,9 +1523,150 @@ $("d_k_firma").addEventListener("input",function(){
   if(c) CUST_F.forEach(function(f){ if(f!=="k_firma"&&$("d_"+f)) $("d_"+f).value=c[f]||""; });
 });
 
+/* ===================== Artikel ===================== */
+function articles(){return lsGet(K_ART,[]);}
+function refreshArticles(){
+  const list=articles();
+  $("artList").innerHTML=list.map(function(a){return '<option value="'+esc(a.bez)+'"></option>';}).join("");
+  $("sumArt").textContent=list.length+" gespeichert";
+  const q=$("artSearch").value.trim().toLowerCase();
+  const rows=list.map(function(a,i){return {a:a,i:i};})
+    .filter(function(x){return !q||String(x.a.bez).toLowerCase().indexOf(q)>=0;})
+    .sort(function(x,y){return String(x.a.bez).localeCompare(String(y.a.bez),"de");});
+  $("artTable").innerHTML=rows.length?rows.map(function(x){
+    return '<div class="custrow" data-i="'+x.i+'"><div class="ci"><b>'+esc(x.a.bez)+'</b><span>'+
+      esc((set_cur())+" "+(x.a.preis||"–")+(x.a.einheit?" / "+x.a.einheit:""))+'</span></div>'+
+      '<button class="btn secondary tiny" data-a="use">Einfügen</button>'+
+      '<button class="btn danger tiny" data-a="del">Löschen</button></div>';
+  }).join(""):'<p class="hint">'+(list.length?"Kein Artikel passt zur Suche.":"Noch keine Artikel gespeichert.")+'</p>';
+}
+function set_cur(){return $("s_waehrung").value||"CHF";}
+/* Neue Positionen mit Preis werden gemerkt; bestehende Artikel bleiben unverändert. */
+function saveArticles(d){
+  const list=articles(); let neu=false;
+  d.items.forEach(function(it){
+    const bez=String(it.bez||"").trim();
+    if(!bez||parseNum(it.preis)==null||list.some(function(a){return a.bez===bez;})) return;
+    list.push({bez:bez,einheit:it.einheit||"",preis:it.preis,t:Date.now()}); neu=true;
+  });
+  if(neu){lsSet(K_ART,list); refreshArticles();}
+}
+$("artSearch").addEventListener("input",refreshArticles);
+$("artTable").addEventListener("click",function(e){
+  const a=e.target.dataset.a, row=e.target.closest(".custrow"); if(!a||!row) return;
+  const list=articles(), art=list[+row.dataset.i]; if(!art) return;
+  if(a==="del"){
+    if(!confirm("Artikel „"+art.bez+"\" löschen?")) return;
+    list.splice(+row.dataset.i,1); markDeleted("art:"+art.bez); lsSet(K_ART,list); refreshArticles(); return;
+  }
+  /* In die letzte (leere) Zeile einsetzen */
+  const rows=$("itemBody").querySelectorAll(".itemrow"), tr=rows[rows.length-1];
+  tr.querySelector(".f-bez").value=art.bez; tr.querySelector(".f-einheit").value=art.einheit||"";
+  tr.querySelector(".f-preis").value=art.preis||""; tr.querySelector(".f-menge").value="1";
+  ensureEmptyRow(); render(); $("acc2").open=true;
+});
+
+/* ===================== Rechnungen & Zahlungen ===================== */
+function payments(){return lsGet(K_PAY,[]);}
+let invFilter="open", payOpen=null;
+/* Jede Rechnungs-Nr. einmal: der neueste archivierte Stand, ohne Mahnungen. */
+function invoices(){
+  const byNr={}, mahn={}, pays=payments(), today=todayISO();
+  archive().forEach(function(e){
+    const d=e.doc; if(!d||!d.rnr||(d.typ!=="rechnung"&&d.typ!=="beides")) return;
+    const m=parseInt(d.mahnstufe,10)||0;
+    if(m){mahn[d.rnr]=Math.max(mahn[d.rnr]||0,m); return;}
+    if(!byNr[d.rnr]||e.id>byNr[d.rnr].id) byNr[d.rnr]=e;
+  });
+  return Object.keys(byNr).map(function(nr){
+    const e=byNr[nr], d=e.doc, c=compute(Object.assign({},DOC_DEFAULTS,d));
+    const p=pays.filter(function(x){return x.rnr===nr;}).sort(function(a,b){return a.datum<b.datum?-1:1;});
+    const bezahlt=round2(p.reduce(function(a,x){return a+(+x.betrag||0);},0));
+    const rest=round2(c.offen-bezahlt), faellig=addDays(d.rdatum,parseInt(d.frist,10));
+    const status=rest<=0.004?"bezahlt":faellig&&faellig<today?"überfällig":bezahlt>0?"teilweise bezahlt":"offen";
+    return {nr:nr,e:e,d:d,c:c,pays:p,bezahlt:bezahlt,rest:rest,faellig:faellig,status:status,mahn:mahn[nr]||0};
+  }).sort(function(a,b){return (b.d.rdatum||"").localeCompare(a.d.rdatum||"");});
+}
+function refreshInvoices(){
+  const all=invoices(), cur=set_cur();
+  const offen=all.filter(function(x){return x.status!=="bezahlt";});
+  $("sumInv").textContent=offen.length?offen.length+" offen":(all.length?"alle bezahlt":"");
+  const list=invFilter==="open"?offen:all;
+  const cls={"bezahlt":"st-ok","überfällig":"st-err","teilweise bezahlt":"st-warn","offen":""};
+  $("invTable").innerHTML=list.length?list.map(function(x){
+    let h='<div class="custrow" data-nr="'+esc(x.nr)+'"><div class="ci"><b>'+esc(x.nr)+' · '+esc(x.d.k_firma||"ohne Kunde")+'</b>'+
+      '<span>'+esc(cur)+' '+fmt2(x.c.offen)+' · fällig '+(ddmmyyyy(x.faellig)||"–")+' · <span class="'+cls[x.status]+'">'+
+      esc(x.status)+(x.status!=="bezahlt"&&x.bezahlt?" (noch "+fmt2(x.rest)+")":"")+'</span>'+
+      (x.mahn?' · '+esc(MAHN_TITEL[x.mahn])+' versandt':'')+'</span></div>';
+    if(x.rest>0.004) h+='<button class="btn secondary tiny" data-a="pay">Zahlung</button>';
+    if(x.bezahlt>0) h+='<button class="btn secondary tiny" data-a="receipt">Quittung</button>';
+    if(x.rest>0.004&&x.mahn<3) h+='<button class="btn secondary tiny" data-a="remind">Mahnen</button>';
+    h+='<button class="btn secondary tiny" data-a="open">Öffnen</button></div>';
+    if(x.pays.length) h+='<div class="paylist">Zahlungen: '+x.pays.map(function(p){
+      return esc(ddmmyyyy(p.datum))+' '+esc(cur)+' '+fmt2(+p.betrag)+
+        '<button data-a="unpay" data-nr="'+esc(x.nr)+'" data-t="'+p.t+'" title="Zahlung löschen">×</button>';}).join(" · ")+'</div>';
+    if(payOpen===x.nr) h+='<div class="payform" data-nr="'+esc(x.nr)+'">'+
+      '<div><label>Betrag</label><input id="payAmt" type="number" step="0.01" value="'+x.rest.toFixed(2)+'"></div>'+
+      '<div><label>Datum</label><input id="payDate" type="date" value="'+todayISO()+'"></div>'+
+      '<button class="btn tiny" data-a="paysave">Erfassen</button>'+
+      '<button class="btn secondary tiny" data-a="paycancel">Abbrechen</button></div>';
+    return h;
+  }).join(""):'<p class="hint">'+(all.length?"Keine offenen Rechnungen.":"Noch keine Rechnungen im Archiv.")+'</p>';
+}
+function loadInvoiceDoc(x,patch){
+  const d=Object.assign(JSON.parse(JSON.stringify(x.d)),patch);
+  qrData=null; qrName="";
+  applyDoc(d); ensureEmptyRow(); showCounters(); render();
+  $("acc1").open=true; window.scrollTo(0,0);
+}
+document.querySelectorAll("#invFilter button").forEach(function(b){
+  b.onclick=function(){
+    invFilter=b.dataset.f;
+    document.querySelectorAll("#invFilter button").forEach(function(x){x.classList.toggle("active",x===b);});
+    refreshInvoices();
+  };
+});
+$("invTable").addEventListener("click",function(e){
+  const a=e.target.dataset.a; if(!a) return;
+  if(a==="unpay"){
+    if(!confirm("Diese Zahlung löschen?")) return;
+    const t=+e.target.dataset.t;
+    lsSet(K_PAY,payments().filter(function(p){return p.t!==t;})); markDeleted("pay:"+t);
+    refreshInvoices(); return;
+  }
+  const row=e.target.closest("[data-nr]"); if(!row) return;
+  const x=invoices().find(function(i){return i.nr===row.dataset.nr;}); if(!x) return;
+  if(a==="pay"){payOpen=x.nr; refreshInvoices(); return;}
+  if(a==="paycancel"){payOpen=null; refreshInvoices(); return;}
+  if(a==="paysave"){
+    const betrag=round2(parseNum($("payAmt").value)||0), datum=$("payDate").value;
+    if(!(betrag>0)||!datum){alert("Bitte Betrag und Datum eintragen.");return;}
+    const list=payments(); list.push({rnr:x.nr,betrag:betrag,datum:datum,t:Date.now()});
+    lsSet(K_PAY,list); payOpen=null; refreshInvoices(); return;
+  }
+  if(a==="open"){loadInvoiceDoc(x,{}); return;}
+  if(a==="receipt"){
+    /* Quittung über alles Erhaltene: Akonto (falls vorhanden) + erfasste Zahlungen. */
+    const akonto=x.c.akonto>0?x.c.erhaltenAuto:0;
+    loadInvoiceDoc(x,{typ:"quittung",qnr:nextReceiptNr(),zdatum:x.pays[x.pays.length-1].datum,
+      qbetrag_auto:false,qbetrag:String(round2(akonto+x.bezahlt)),mahnstufe:"0"});
+    return;
+  }
+  if(a==="remind"){
+    const stufe=x.mahn+1, set=readSettings(), fee=parseNum(set.mahngebuehr)||0;
+    const sums=JSON.parse(JSON.stringify(x.d.sums&&x.d.sums.length?x.d.sums:SUMS_DEFAULT));
+    if(x.bezahlt>0) sums.push({t:"extra",label:"Bereits bezahlt",op:"-",wert:String(x.bezahlt),typ:"chf"});
+    if(stufe>=2&&fee>0) sums.push({t:"extra",label:"Mahngebühr",op:"+",wert:String(fee),typ:"chf"});
+    loadInvoiceDoc(x,{typ:"rechnung",mahnstufe:String(stufe),mdatum:todayISO(),sums:sums});
+  }
+});
+
 /* ===================== Archiv ===================== */
 function archive(){return lsGet(K_ARC,[]);}
 function docLabel(d){
+  const mahn=d.typ==="rechnung"?parseInt(d.mahnstufe,10)||0:0;
+  if(mahn) return MAHN_TITEL[mahn]+" "+(d.rnr||"–")+" · "+(d.k_firma||"ohne Kunde")+" · "+
+    (ddmmyyyy(d.mdatum)||"ohne Datum");
   const t=d.typ==="offerte"?"Offerte":d.typ==="rechnung"?"Rechnung"
          :d.typ==="quittung"?"Quittung":"Offerte+Rechnung";
   const nr=d.typ==="offerte"?d.onr:d.typ==="quittung"?(d.qnr||d.rnr):(d.rnr||d.onr);
@@ -1481,7 +1683,7 @@ function archiveCurrent(){
   const i=list.findIndex(function(x){return x.label===e.label;});
   if(i>=0) list[i]=e; else list.unshift(e);
   if(!lsSet(K_ARC,list)) return false;
-  refreshArchive(); return true;
+  refreshArchive(); refreshInvoices(); return true;
 }
 $("arcLoad").onclick=function(){
   const e=archive()[$("arcSel").value]; if(!e) return;
@@ -1510,7 +1712,8 @@ $("arcDel").onclick=function(){
 /* ===================== Export / Import ===================== */
 $("btnExport").onclick=function(){
   const data={version:3,exported:new Date().toISOString(),settings:readSettings(),
-    doc:readDoc(),customers:customers(),archive:archive(),counters:counters()};
+    doc:readDoc(),customers:customers(),archive:archive(),counters:counters(),
+    articles:articles(),payments:payments()};
   const a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
   a.download="maloev-backup-"+todayISO()+".json";
@@ -1527,8 +1730,11 @@ $("importFile").onchange=function(e){
       if(d.customers) lsSet(K_CUST,d.customers);
       if(d.archive) lsSet(K_ARC,d.archive);
       if(d.counters) lsSet(K_CNT,d.counters);
+      if(d.articles) lsSet(K_ART,d.articles);
+      if(d.payments) lsSet(K_PAY,d.payments);
       if(d.doc) applyDoc(d.doc);
-      ensureEmptyRow(); refreshCustomers(); refreshArchive(); showCounters(); render();
+      ensureEmptyRow(); refreshCustomers(); refreshArchive(); refreshArticles(); refreshInvoices();
+      showCounters(); render();
       alert("Import abgeschlossen.");
     }catch(err){alert("Datei konnte nicht gelesen werden: "+err.message);}
   };
@@ -1574,7 +1780,9 @@ $("btnFromInvoice").onclick=function(){
 function printName(){
   const d=readDoc();
   const kunde=String(d.k_firma||"").replace(/[\\/:*?"<>|]/g,"").trim();
-  const base=d.typ==="rechnung"?"Rechnung_"+(d.rnr||"ohne-Nr")
+  const mahn=d.typ==="rechnung"?parseInt(d.mahnstufe,10)||0:0;
+  const base=mahn?["","Zahlungserinnerung","Mahnung-1","Mahnung-2"][mahn]+"_"+(d.rnr||"ohne-Nr")
+            :d.typ==="rechnung"?"Rechnung_"+(d.rnr||"ohne-Nr")
             :d.typ==="offerte"?"Offerte_"+(d.onr||"ohne-Nr")
             :d.typ==="quittung"?"Quittung_"+(d.qnr||d.rnr||"ohne-Nr")
             :"Offerte-"+(d.onr||"?")+"_Rechnung-"+(d.rnr||"?");
@@ -1591,6 +1799,7 @@ function prepareOutput(){
     if(!confirm("Es fehlen noch Angaben:\n\n• "+v.E.join("\n• ")+"\n\nTrotzdem fortfahren?")) return false;
   }
   saveCustomer(d,true);
+  saveArticles(d);
   archiveCurrent();
   return true;
 }
@@ -1672,6 +1881,10 @@ SET_IDS.forEach(function(id){const el=$("s_"+id); if(el) el.addEventListener("in
 DOC_TEXT_IDS.forEach(function(id){const el=$("d_"+id); if(el) el.addEventListener("input",renderSoon);});
 DOC_CHECK_IDS.forEach(function(id){const el=$("d_"+id); if(el) el.addEventListener("change",render);});
 $("d_rab_typ").addEventListener("change",render);
+$("d_mahnstufe").addEventListener("change",function(){
+  if($("d_mahnstufe").value!=="0"&&!$("d_mdatum").value) $("d_mdatum").value=todayISO();
+  render();
+});
 $("d_mwstSel").addEventListener("change",function(e){
   if(e.target.value!=="custom") $("d_mwst").value=e.target.value;
   render();
@@ -1681,6 +1894,8 @@ document.querySelectorAll("#segType button").forEach(function(b){
   b.onclick=function(){setType(b.dataset.v);};
 });
 $("addRow").onclick=function(){addItemRow({});render();};
+
+const MAHN_TITEL=["","Zahlungserinnerung","1. Mahnung","2. Mahnung"];
 
 /* ===================== Summenblock bearbeiten ===================== */
 const SUM_NAMES={sub:"Zwischentotal",rabatt:"Rabatt",mwst:"MWST",akonto:"Akonto (Rechnung)",extra:"Abzug/Zuschlag"};
@@ -1749,7 +1964,8 @@ const cloud={client:null,user:null,timer:null,running:null,changes:0};
 function cloudStatus(m){$("cloudStatus").textContent=m;}
 function localState(){
   return {app:"maloev",schemaVersion:1,settings:lsGet(K_SET,{}),settingsAt:+lsGet(K_SETAT,0)||0,
-    customers:customers(),archive:archive(),counters:counters(),deleted:lsGet(K_DEL,{})};
+    customers:customers(),archive:archive(),counters:counters(),deleted:lsGet(K_DEL,{}),
+    articles:articles(),payments:payments()};
 }
 function validState(x){
   return !!x&&x.app==="maloev"&&x.schemaVersion===1&&x.settings&&x.counters&&x.deleted
@@ -1760,7 +1976,8 @@ function applyState(m){
   const raw=function(k,v){localStorage.setItem(k,JSON.stringify(v));};
   applySettings(m.settings); raw(K_SET,readSettings()); raw(K_SETAT,m.settingsAt);
   raw(K_CUST,m.customers); raw(K_ARC,m.archive); raw(K_CNT,m.counters); raw(K_DEL,m.deleted);
-  refreshCustomers(); refreshArchive(); showCounters(); render();
+  raw(K_ART,m.articles); raw(K_PAY,m.payments);
+  refreshCustomers(); refreshArchive(); refreshArticles(); refreshInvoices(); showCounters(); render();
 }
 function cloudSchedule(){
   if(!cloud.user) return;
@@ -1853,7 +2070,7 @@ async function initCloud(){
     applyDoc(d);
   }
   ensureEmptyRow();
-  refreshCustomers(); refreshArchive(); showCounters();
+  refreshCustomers(); refreshArchive(); refreshArticles(); refreshInvoices(); showCounters();
   render(); fitSheets();
   loadQrLib();
   initCloud();

@@ -33,7 +33,15 @@ ist gesetzt, z. B. `Rechnung_RE-2026-02_Nordex 2 GmbH.pdf`. Das Drucker-Symbol d
 öffnet den Druckdialog. Das PDF besteht aus Seitenbildern (Text nicht markierbar);
 wer markierbaren Text braucht, wählt im Druckdialog „Als PDF sichern".
 
-Gespeicherte Kunden stehen im Abschnitt **Kunden** (suchen, übernehmen, löschen).
+Gespeicherte Kunden stehen im Abschnitt **Kunden** (suchen, übernehmen, löschen),
+gemerkte Positionen unter **Artikel** – die Bezeichnung schlägt sie vor und übernimmt
+Einheit und Preis.
+
+**Rechnungen & Zahlungen** listet jede ausgegebene Rechnung mit Status (offen,
+teilweise bezahlt, überfällig, bezahlt). Dort Zahlungen erfassen, daraus eine
+Quittung erstellen oder mahnen: Zahlungserinnerung → 1. Mahnung → 2. Mahnung, mit
+neuer Frist, bereits bezahltem Betrag und Mahngebühr (ab der 1. Mahnung, siehe
+Einstellungen).
 Die Reihenfolge der Beträge (Rabatt, MWST, Akonto, eigene Abzüge) steht unter
 **3 → Steuern, Abzüge & Konditionen** und wird von oben nach unten gerechnet.
 
