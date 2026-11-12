@@ -28,8 +28,14 @@ und bekommt ein Häkchen, sobald er vollständig ist:
 Alles, was sich nie ändert – Firma, Adresse, UID, Bank, Standardtexte – steht
 einmalig unter **⚙ Einstellungen**.
 
-Zum Schluss **Drucken / Als PDF speichern** und im Druckdialog „Als PDF sichern"
-wählen. Der Dateiname wird gesetzt, z. B. `Rechnung_RE-2026-02_Nordex 2 GmbH.pdf`.
+Zum Schluss **PDF herunterladen** – das PDF wird direkt gespeichert, der Dateiname
+ist gesetzt, z. B. `Rechnung_RE-2026-02_Nordex 2 GmbH.pdf`. Das Drucker-Symbol daneben
+öffnet den Druckdialog. Das PDF besteht aus Seitenbildern (Text nicht markierbar);
+wer markierbaren Text braucht, wählt im Druckdialog „Als PDF sichern".
+
+Gespeicherte Kunden stehen im Abschnitt **Kunden** (suchen, übernehmen, löschen).
+Die Reihenfolge der Beträge (Rabatt, MWST, Akonto, eigene Abzüge) steht unter
+**3 → Steuern, Abzüge & Konditionen** und wird von oben nach unten gerechnet.
 
 ## Was automatisch passiert
 
@@ -87,10 +93,15 @@ Tabelle um, wiederholt ihren Kopf und markiert die Folgeseiten als
 Für einen klassischen Serif-Look lässt sich `--doc-font` in `index.html` auf
 `"Times New Roman", Times, serif` umstellen.
 
-## QR-Rechnung anhängen
+## QR-Rechnung
 
-Unter **QR-Rechnung (Beilage)** den Einzahlungsschein hochladen – er wird als
-letzte Seite mitgedruckt und in den Info-Texten als Seitenverweis erwähnt.
+Jede Rechnung bekommt automatisch einen Swiss-QR-Zahlteil als letzte Seite
+(Bibliothek `swissqrbill`): offener Betrag, IBAN, Kunde als Zahlungspflichtiger und
+eine SCOR-Referenz (`RF…`) aus der Rechnungs-Nr. Adressen müssen als „Strasse Nr."
+und „PLZ Ort" erfasst sein. Abschaltbar unter **4 → QR-Rechnung**.
+
+Alternativ kann ein eigener Einzahlungsschein hochgeladen werden – er ersetzt den
+erzeugten Zahlteil:
 
 - **Bild** (PNG/JPG): funktioniert immer.
 - **PDF**: wird beim Hochladen in ein Bild umgewandelt (via `vendor/pdf.min.mjs`).

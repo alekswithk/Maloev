@@ -39,11 +39,14 @@
   .sl input.w{flex:none;width:70px}
   .sl select{flex:none;width:auto}
   .sl button{border:1px solid #ccc;background:#fff;color:#555;border-radius:5px;padding:3px 7px;cursor:pointer}
-  @media screen{
-    table.sum tr[draggable]{cursor:grab}
-    table.sum tr.drop-above td{box-shadow:inset 0 2px 0 var(--accent)}
-    table.sum tr.drop-below td{box-shadow:inset 0 -2px 0 var(--accent)}
-  }
+  /* Kunden */
+  .custrow{display:flex;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid #eee}
+  .custrow .ci{flex:1;min-width:0;font-size:12.5px;line-height:1.35}
+  .custrow .ci span{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Ausgabe */
+  .btn.big{font-size:15px;font-weight:600;padding:11px 14px}
+  .btn.icon{flex:none;display:inline-flex;align-items:center;justify-content:center;padding:8px 12px}
+  .btn:disabled{opacity:.6;cursor:wait}
   .bar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
   .btn{font:inherit;font-size:13px;padding:8px 12px;border:1px solid var(--accent);background:var(--accent);
        color:#fff;border-radius:7px;cursor:pointer}
@@ -115,7 +118,9 @@
 
   /* Kopf reicht von 18mm bis 78mm ab Blattkante, damit der Empfängerblock
      im Kuvertfenster liegt (20mm von links, 45.5mm von oben). */
-  .dochead{height:60mm;position:relative;flex:none}
+  .dochead{min-height:60mm;position:relative;flex:none}
+  /* Eckdaten im Fluss: mehr Zeilen schieben den Text nach unten statt ihn zu überdecken. */
+  .dochead:not(.cont) .hrow{position:absolute;left:0;right:0;top:0}
   .dochead.cont{height:26mm}
   .hrow{display:flex;justify-content:space-between;align-items:flex-start}
   .hrow img.logo{height:17mm;object-fit:contain}
@@ -128,7 +133,7 @@
         padding-bottom:.8mm;border-bottom:.4pt solid #999;width:85mm}
   .addrwin{position:absolute;left:0;top:28.5mm;width:85mm;font-size:10.5pt;line-height:1.42}
   .addrwin .firma{font-weight:700}
-  .metabox{position:absolute;right:0;top:27.5mm;width:72mm;font-size:9pt}
+  .metabox{margin:27.5mm 0 0 auto;padding-bottom:3mm;width:72mm;font-size:9pt}
   .metabox table{width:100%;border-collapse:collapse}
   .metabox td{padding:.75mm 0;vertical-align:top}
   .metabox td.k{color:#333;white-space:nowrap;padding-right:4mm}
@@ -244,7 +249,11 @@
       <button class="btn secondary tiny" id="btnFromInvoice">→ Quittung aus Rechnung</button>
     </div>
     <div class="bar">
-      <button class="btn wide" id="btnPrint">🖨 Drucken / Als PDF speichern</button>
+      <button class="btn wide big" id="btnPdf">PDF herunterladen</button>
+      <button class="btn icon" id="btnPrint" title="Drucken" aria-label="Drucken">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="2.5" y="9" width="19" height="8" rx="2"/>
+          <path d="M6 14h12v7H6z"/></svg></button>
     </div>
 
     <!-- ---------- 1 Kunde ---------- -->
@@ -375,8 +384,7 @@
           <button class="btn secondary tiny" id="sumReset">Standard</button>
         </div>
         <p class="hint">Gerechnet wird von oben nach unten: was über der MWST steht, senkt die
-          MWST-Basis. Leere Bezeichnung = automatischer Text. Zeilen lassen sich auch direkt
-          in der Vorschau ziehen. Beträge von 0 werden nicht gedruckt.</p>
+          MWST-Basis. Leere Bezeichnung = automatischer Text. Beträge von 0 werden nicht gedruckt.</p>
 
         <div class="subh">Quittung</div>
         <label>Erhaltener Betrag</label><input id="d_qbetrag" type="number" step="0.01">
@@ -411,9 +419,12 @@
         <p class="inline"><input type="checkbox" id="d_info_auto" checked>
           <label for="d_info_auto">automatisch aus Rabatt, Akonto und Frist erzeugen</label></p>
 
-        <div class="subh">QR-Rechnung als Beilage</div>
-        <input id="qrFile" type="file" accept="application/pdf,image/*">
+        <div class="subh">QR-Rechnung</div>
+        <p class="inline"><input type="checkbox" id="d_qr_auto" checked>
+          <label for="d_qr_auto">QR-Zahlteil automatisch erzeugen (offener Betrag, IBAN, Rechnungs-Nr.)</label></p>
         <div class="hint" id="qrStatus"></div>
+        <label>Oder eigene Beilage hochladen (ersetzt den erzeugten Zahlteil)</label>
+        <input id="qrFile" type="file" accept="application/pdf,image/*">
         <div class="bar" style="margin:8px 0 0">
           <button class="btn danger tiny" id="qrRemove">Beilage entfernen</button>
         </div>
@@ -430,6 +441,18 @@
     </details>
 
     <!-- ---------- Einstellungen ---------- -->
+    <details class="acc settings" id="accCust">
+      <summary><span class="step"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.2" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.6 3.2-5.5 6.5-5.5s5.8 1.9 6.5 5.5M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.8c1.8.6 3 2.4 3.5 5.2"/></svg></span>
+        <span class="ttl">Kunden</span><span class="rsum" id="sumCust"></span><span class="chev">›</span></summary>
+      <div class="inner">
+        <input id="custSearch" type="search" placeholder="Kunde suchen …" aria-label="Kunde suchen">
+        <div id="custTable"></div>
+        <p class="hint">Neue Kunden unter 1 Kunde erfassen und „Kunde merken" – oder einfach drucken,
+          dann wird der Kunde automatisch gemerkt.</p>
+      </div>
+    </details>
+
     <details class="acc settings" id="accSet">
       <summary><span class="step">⚙</span><span class="ttl">Einstellungen</span>
         <span class="rsum">Firma, Bank, Standardwerte</span><span class="chev">›</span></summary>
@@ -562,7 +585,7 @@ const DOC_DEFAULTS={
   p_pct:"50", p_frist1:"5 Werktagen", p_frist2:"30 Tagen", p_kond:"",
   info:"", gueltig_auto:true, referenz_auto:true, info_auto:true, runden:true, qbetrag_auto:true,
   items:[{bez:"",menge:"",einheit:"",preis:"",betrag:"",fix:false}],
-  qr:null, qrName:"", sums:null
+  qr:null, qrName:"", sums:null, qr_auto:true
 };
 /* Summenblock: Zeilen werden der Reihe nach verrechnet.
    sub = Zwischentotal, rabatt/akonto = Felder oben, extra = eigener Abzug/Zuschlag. */
@@ -575,7 +598,7 @@ const DOC_TEXT_IDS=["typ","onr","rnr","qnr","betreff","odatum","gueltig","rdatum
   "zdatum","frist","referenz","mwst","lieferung","bemerkung","k_firma","k_strasse","k_ort",
   "k_uid","k_anrede","k_sign","rab_label","rab_wert","rab_typ","akonto","akonto_datum",
   "qbetrag","p_pct","p_frist1","p_frist2","p_kond","info"];
-const DOC_CHECK_IDS=["gueltig_auto","referenz_auto","info_auto","runden","qbetrag_auto"];
+const DOC_CHECK_IDS=["gueltig_auto","referenz_auto","info_auto","runden","qbetrag_auto","qr_auto"];
 
 let qrData=null, qrName="", sumsData=JSON.parse(JSON.stringify(SUMS_DEFAULT));
 
@@ -872,7 +895,7 @@ function fillPh(txt,ctx){
     .replace(/\{faellig\}/g,ddmmyyyy(ctx.faellig)||"…")
     .replace(/\{frist\}/g,ctx.d.frist||"")
     .replace(/\{gueltig\}/g,ddmmyyyy(ctx.d.gueltig)||"…")
-    .replace(/\{kunde\}/g,ctx.d.k_firma||"")
+    .replace(/\{kunde\}/g,ctx.d.k_firma||"…")
     .replace(/\{firma\}/g,ctx.set.handel||ctx.set.firma||"")
     .replace(/\{nr\}/g,ctx.nr||"")
     .replace(/\{qrseite\}/g,ctx.qrPage||"")
@@ -938,8 +961,7 @@ function rowHtml(r,i){
 }
 function sumsTable(L,letzte){
   return '<div class="sums"><table class="sum"><tbody>'+
-    L.map(function(r){return '<tr'+(r[2]!=null?' draggable="true" data-k="'+r[2]+'"':'')+'><td>'+
-      esc(r[0])+'</td><td class="v">'+esc(r[1])+'</td></tr>';}).join("")+
+    L.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td class="v">'+esc(r[1])+'</td></tr>';}).join("")+
     '<tr class="tot"><td>'+esc(letzte[0])+'</td><td class="v">'+esc(letzte[1])+'</td></tr>'+
     '</tbody></table></div>';
 }
@@ -1105,6 +1127,7 @@ function validate(d,set,c){
   if(wantR&&!d.rdatum) E.push("Rechnungsdatum fehlt");
   if(wantQ&&!String(d.onr||"").trim()) W.push("Offerte-Nr. fehlt");
   if(wantR&&!String(d.rnr||"").trim()) W.push("Rechnungs-Nr. fehlt");
+  if(wantR&&d.qr_auto&&!qrData&&qrLib&&c.offen>0){const g=qrBill(d,set,c); if(g.err) W.push(g.err);}
   if(wantQ&&d.gueltig&&d.odatum&&d.gueltig<d.odatum) E.push("Gültig-bis liegt vor dem Offertdatum");
   if(wantR&&d.ldatum&&d.rdatum&&d.ldatum>d.rdatum) W.push("Leistungsdatum liegt nach dem Rechnungsdatum");
   if(wantU){
@@ -1140,7 +1163,12 @@ function render(){
   const faellig=addDays(d.rdatum,parseInt(d.frist,10));
   const typ=d.typ||"beides";
   const showU=typ==="quittung";
-  const showQ=!showU&&typ!=="rechnung", showR=!showU&&typ!=="offerte", showQr=showR&&!!qrData;
+  const showQ=!showU&&typ!=="rechnung", showR=!showU&&typ!=="offerte";
+  /* Hochgeladene Beilage hat Vorrang, sonst der erzeugte Zahlteil. */
+  let qrSrc=null, qrErr="";
+  if(showR&&qrData) qrSrc=qrData;
+  else if(showR&&d.qr_auto){const g=qrBill(d,set,c); qrSrc=g.url||null; qrErr=g.err||"";}
+  const showQr=!!qrSrc;
 
   /* ---- Offerte ---- */
   let qPages=0;
@@ -1184,7 +1212,7 @@ function render(){
   $("pgQr").classList.toggle("off",!showQr);
   if(showQr){
     const img=$("qrImg");
-    if(img.getAttribute("src")!==qrData) img.src=qrData;
+    if(img.getAttribute("src")!==qrSrc) img.src=qrSrc;
     img.onload=function(){
       $("pgQr").classList.toggle("bottom",img.naturalHeight/img.naturalWidth<0.75);
     };
@@ -1228,7 +1256,7 @@ function render(){
   $("acc4").classList.toggle("done",v.E.length===0);
   $("rowSum").textContent=anz?"Zwischentotal exkl. MWST: "+cur+" "+fmt2(c.netto):"";
 
-  renderQrStatus();
+  renderQrStatus(showR,qrSrc,qrErr);
   lsSet(K_SET,set);
   if(!lsSet(K_DOC,d)) $("qrStatus").textContent=
     "Speicher voll – die QR-Beilage konnte nicht dauerhaft gesichert werden.";
@@ -1245,12 +1273,59 @@ function numberPages(){
 
 /* ===================== QR-Beilage ===================== */
 const PDF_OK=location.protocol!=="file:";
-function renderQrStatus(){
+function renderQrStatus(showR,src,err){
   const el=$("qrStatus");
-  if(qrData){el.textContent="Hinterlegt: "+(qrName||"QR-Rechnung")+" – wird als letzte Seite gedruckt.";return;}
-  el.textContent=PDF_OK?"Keine Beilage hinterlegt."
-    :"Keine Beilage hinterlegt. Die Datei ist direkt vom Dateisystem geöffnet – "+
-     "hier funktioniert nur der Bild-Upload.";
+  if(qrData){el.textContent="Eigene Beilage: "+(qrName||"QR-Rechnung")+" – wird als letzte Seite gedruckt.";return;}
+  if(!showR){el.textContent="Nur für Rechnungen.";return;}
+  el.textContent=src?"Zahlteil erzeugt – wird als letzte Seite angehängt.":(err||"Kein Zahlteil.");
+}
+/* Swiss QR-Bill (SIX-Standard) über die Bibliothek swissqrbill. */
+let qrLib=null, qrLibErr="", qrCache={key:"",url:"",err:""};
+function loadQrLib(){
+  const base="https://cdn.jsdelivr.net/npm/swissqrbill@4.4.2/";
+  return Promise.all([import(base+"svg/+esm"),import(base+"utils/+esm")]).then(function(m){
+    qrLib={SwissQRBill:m[0].SwissQRBill,u:m[1]}; render();
+  }).catch(function(){qrLibErr="QR-Modul konnte nicht geladen werden (offline?)."; render();});
+}
+/* "Lindenquai 4" → Strasse + Hausnummer, "7000 Chur" → PLZ + Ort (strukturierte Adresse). */
+function splitStreet(v){
+  const m=String(v||"").trim().match(/^(.*?)\s+(\d+\s*[a-zA-Z]?)$/);
+  return m?{address:m[1],buildingNumber:m[2].replace(/\s/g,"")}:{address:String(v||"").trim()};
+}
+function splitOrt(v){
+  const m=String(v||"").trim().match(/^(?:CH-)?(\d{4})\s+(.+)$/);
+  return m?{zip:m[1],city:m[2].trim()}:null;
+}
+function qrBill(d,set,c){
+  if(!qrLib) return {err:qrLibErr||"QR-Modul wird geladen …"};
+  const cur=set.waehrung||"CHF";
+  if(cur!=="CHF"&&cur!=="EUR") return {err:"Ein QR-Zahlteil ist nur in CHF oder EUR möglich."};
+  if(!(c.offen>0)) return {err:"Kein offener Betrag – kein Zahlteil."};
+  const ort=splitOrt(set.ort);
+  if(!ort) return {err:"Ort der Firma in den Einstellungen als „PLZ Ort\" eintragen."};
+  const u=qrLib.u, iban=String(set.iban||"").replace(/\s/g,"").toUpperCase();
+  const raw=String(d.rnr||"").replace(/[^A-Za-z0-9]/g,"").toUpperCase();
+  const data={currency:cur,amount:c.offen,
+    creditor:Object.assign({account:iban,name:set.firma||set.handel||"",zip:ort.zip,city:ort.city,country:"CH"},
+      splitStreet(set.strasse))};
+  /* QR-IBAN verlangt eine QR-Referenz, eine normale IBAN erlaubt eine SCOR-Referenz (RF…). */
+  if(u.isQRIBAN(iban)){
+    const n=(raw.replace(/\D/g,"")||"0").slice(-26).padStart(26,"0");
+    data.reference=n+u.calculateQRReferenceChecksum(n);
+  }else if(raw){
+    const r=raw.slice(0,21); data.reference="RF"+u.calculateSCORReferenceChecksum(r)+r;
+  }
+  if(d.rnr) data.message="Rechnung "+d.rnr;
+  const kOrt=splitOrt(d.k_ort);
+  if(String(d.k_firma||"").trim()&&kOrt)
+    data.debtor=Object.assign({name:d.k_firma.trim(),zip:kOrt.zip,city:kOrt.city,country:"CH"},splitStreet(d.k_strasse));
+  const key=JSON.stringify(data);
+  if(key===qrCache.key) return qrCache;
+  try{
+    const svg=new qrLib.SwissQRBill(data,{language:"DE"}).toString();
+    qrCache={key:key,url:"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg),err:""};
+  }catch(e){qrCache={key:key,url:"",err:"QR-Zahlteil nicht möglich: "+e.message};}
+  return qrCache;
 }
 let pdfjs=null;
 async function loadPdfJs(){
@@ -1334,7 +1409,28 @@ $("s_next_q").addEventListener("change",function(){
 /* ===================== Kunden ===================== */
 const CUST_F=["k_firma","k_strasse","k_ort","k_uid","k_anrede","k_sign"];
 function customers(){return lsGet(K_CUST,[]);}
+function renderCustTable(){
+  const q=$("custSearch").value.trim().toLowerCase(), list=customers();
+  $("sumCust").textContent=list.length+" gespeichert";
+  const rows=list.map(function(c,i){return {c:c,i:i};})
+    .filter(function(x){return !q||[x.c.k_firma,x.c.k_strasse,x.c.k_ort].join(" ").toLowerCase().indexOf(q)>=0;})
+    .sort(function(a,b){return String(a.c.k_firma).localeCompare(String(b.c.k_firma),"de");});
+  $("custTable").innerHTML=rows.length?rows.map(function(x){
+    return '<div class="custrow" data-i="'+x.i+'"><div class="ci"><b>'+esc(x.c.k_firma)+'</b><span>'+
+      esc([x.c.k_strasse,x.c.k_ort].filter(Boolean).join(", ")||"ohne Adresse")+'</span></div>'+
+      '<button class="btn secondary tiny" data-a="use">Übernehmen</button>'+
+      '<button class="btn danger tiny" data-a="del">Löschen</button></div>';
+  }).join(""):'<p class="hint">'+(list.length?"Kein Kunde passt zur Suche.":"Noch keine Kunden gespeichert.")+'</p>';
+}
+function deleteCustomer(name){
+  const list=customers(), i=list.findIndex(function(c){return c.k_firma===name;});
+  if(i<0) return false;
+  if(!confirm("Kunde „"+name+"\" aus der Liste löschen?")) return true;
+  list.splice(i,1); markDeleted("cust:"+name); lsSet(K_CUST,list); refreshCustomers();
+  return true;
+}
 function refreshCustomers(){
+  renderCustTable();
   $("custList").innerHTML=customers().map(function(c){
     return '<option value="'+esc(c.k_firma)+'"></option>';}).join("");
 }
@@ -1350,12 +1446,16 @@ $("custSave").onclick=function(){
   if(!saveCustomer(readDoc(),false)) alert("Bitte zuerst die Firma des Kunden eintragen.");
 };
 $("custDel").onclick=function(){
-  const name=$("d_k_firma").value.trim(), list=customers();
-  const i=list.findIndex(function(c){return c.k_firma===name;});
-  if(i<0){alert("Dieser Kunde ist nicht gespeichert.");return;}
-  if(!confirm("Kunde „"+name+"\" aus der Liste löschen?")) return;
-  list.splice(i,1); markDeleted("cust:"+name); lsSet(K_CUST,list); refreshCustomers();
+  if(!deleteCustomer($("d_k_firma").value.trim())) alert("Dieser Kunde ist nicht gespeichert.");
 };
+$("custSearch").addEventListener("input",renderCustTable);
+$("custTable").addEventListener("click",function(e){
+  const a=e.target.dataset.a, row=e.target.closest(".custrow"); if(!a||!row) return;
+  const c=customers()[+row.dataset.i]; if(!c) return;
+  if(a==="del"){deleteCustomer(c.k_firma);return;}
+  CUST_F.forEach(function(f){if($("d_"+f)) $("d_"+f).value=c[f]||"";});
+  render(); $("acc1").open=true; $("acc1").scrollIntoView({behavior:"smooth",block:"start"});
+});
 /* Tippt man einen gespeicherten Namen, wird die Adresse übernommen. */
 $("d_k_firma").addEventListener("input",function(){
   const c=customers().find(function(c){return c.k_firma===$("d_k_firma").value;});
@@ -1481,16 +1581,21 @@ function printName(){
   return (base+(kunde?"_"+kunde:"")).replace(/\s+/g," ").trim();
 }
 let titleBackup=null;
-$("btnPrint").onclick=function(){
+/* Vor jeder Ausgabe: prüfen, Kunde merken, archivieren. */
+function prepareOutput(){
   const d=readDoc(), set=readSettings(), c=compute(d);
   const v=validate(d,set,c);
   if(v.E.length){
     $("acc4").open=true;
     $("acc4").scrollIntoView({behavior:"smooth",block:"center"});
-    if(!confirm("Es fehlen noch Angaben:\n\n• "+v.E.join("\n• ")+"\n\nTrotzdem drucken?")) return;
+    if(!confirm("Es fehlen noch Angaben:\n\n• "+v.E.join("\n• ")+"\n\nTrotzdem fortfahren?")) return false;
   }
-  saveCustomer(d,true);   /* neue Kunden automatisch merken */
-  archiveCurrent();       /* automatisch archivieren */
+  saveCustomer(d,true);
+  archiveCurrent();
+  return true;
+}
+$("btnPrint").onclick=function(){
+  if(!prepareOutput()) return;
   titleBackup=document.title;
   document.title=printName();
   window.print();
@@ -1498,6 +1603,48 @@ $("btnPrint").onclick=function(){
 window.addEventListener("afterprint",function(){
   if(titleBackup!=null){document.title=titleBackup;titleBackup=null;}
 });
+
+function loadScript(src){
+  return new Promise(function(res,rej){
+    const s=document.createElement("script"); s.src=src; s.onload=res;
+    s.onerror=function(){rej(new Error("Bibliothek konnte nicht geladen werden (offline?)"));};
+    document.head.appendChild(s);
+  });
+}
+/* Die A4-Blätter werden als Bild (ca. 280 dpi) in ein PDF gesetzt.
+   ponytail: Rasterbild statt Vektor-PDF – Text im PDF ist nicht markierbar;
+   für echten Text müsste das Layout mit pdf-lib nachgebaut werden. */
+$("btnPdf").onclick=async function(){
+  if(!prepareOutput()) return;
+  const btn=this, label=btn.textContent;
+  btn.disabled=true; btn.textContent="PDF wird erstellt …";
+  const wasPreview=document.body.classList.contains("show-preview");
+  try{
+    await Promise.all([
+      window.html2canvas||loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),
+      window.jspdf||loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")]);
+    /* Auf dem Handy sind die Blätter verkleinert oder ausgeblendet – für die Aufnahme in Originalgrösse. */
+    document.body.classList.add("show-preview");
+    document.documentElement.style.setProperty("--mscale","1");
+    if(document.fonts&&document.fonts.ready) await document.fonts.ready;
+    const sheets=Array.from(document.querySelectorAll("#previewWrap .sheet"))
+      .filter(function(sh){return !sh.classList.contains("off");});
+    const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",compress:true});
+    for(let i=0;i<sheets.length;i++){
+      const cv=await window.html2canvas(sheets[i],{scale:3,backgroundColor:"#ffffff",logging:false,
+        onclone:function(doc,el){el.style.boxShadow="none";el.style.margin="0";el.style.transform="none";}});
+      if(i) pdf.addPage();
+      pdf.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297,undefined,"FAST");
+    }
+    pdf.save(printName()+".pdf");
+  }catch(e){
+    alert("PDF konnte nicht erstellt werden: "+(e.message||e)+"\nAlternative: Drucker-Symbol → „Als PDF sichern\".");
+  }finally{
+    document.body.classList.toggle("show-preview",wasPreview);
+    fitSheets();
+    btn.disabled=false; btn.textContent=label;
+  }
+};
 
 /* ===================== Beispiel ===================== */
 $("btnExample").onclick=function(){
@@ -1569,30 +1716,6 @@ $("sumsEd").addEventListener("click",function(e){
 $("sumAddSub").onclick=function(){sumsData.push({t:"sub"}); renderSumsEditor(); render();};
 $("sumAddExtra").onclick=function(){sumsData.push({t:"extra",op:"-",wert:"",typ:"chf",label:""}); renderSumsEditor(); render();};
 $("sumReset").onclick=function(){sumsData=JSON.parse(JSON.stringify(SUMS_DEFAULT)); renderSumsEditor(); render();};
-/* Ziehen direkt in der Vorschau (Maus; auf dem Handy die Pfeile oben benutzen). */
-let dragK=null;
-function dropRow(e){return e.target.closest&&e.target.closest("table.sum tr[data-k]");}
-function clearDrop(){document.querySelectorAll(".drop-above,.drop-below").forEach(function(t){
-  t.classList.remove("drop-above","drop-below");});}
-$("previewWrap").addEventListener("dragstart",function(e){
-  const tr=dropRow(e); if(!tr) return;
-  dragK=+tr.dataset.k; e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain","");
-});
-$("previewWrap").addEventListener("dragover",function(e){
-  const tr=dropRow(e); if(!tr||dragK===null) return;
-  e.preventDefault(); clearDrop();
-  const b=tr.getBoundingClientRect();
-  tr.classList.add(e.clientY<b.top+b.height/2?"drop-above":"drop-below");
-});
-$("previewWrap").addEventListener("drop",function(e){
-  const tr=dropRow(e); if(!tr||dragK===null) return;
-  e.preventDefault();
-  let to=+tr.dataset.k+(tr.classList.contains("drop-below")?1:0);
-  if(dragK<to) to--;
-  clearDrop(); const from=dragK; dragK=null; moveSum(from,to);
-});
-$("previewWrap").addEventListener("dragend",function(){dragK=null; clearDrop();});
-
 /* Tabs in „Zahlung & Fristen" */
 document.querySelectorAll("#tabs3 button").forEach(function(b){
   b.onclick=function(){
@@ -1732,6 +1855,7 @@ async function initCloud(){
   ensureEmptyRow();
   refreshCustomers(); refreshArchive(); showCounters();
   render(); fitSheets();
+  loadQrLib();
   initCloud();
 })();
 </script>
